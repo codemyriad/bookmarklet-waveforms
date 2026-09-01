@@ -1,7 +1,7 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.2.0'
+	const VERSION = '0.3.0'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const HOST_ID = 'nctalk-waveform'
 	const STORAGE_KEY = 'nctalk-waveform-placement'
@@ -9,6 +9,13 @@
 	const HISTORY_WINDOW_MS = 15_000
 	const HISTORY_SAMPLE_MS = 50
 	const SPECTROGRAM_SAMPLE_MS = 50
+	const MODES = ['waveform', 'amplitude', 'spectrum', 'spectrogram']
+	const MODE_LABELS = {
+		waveform: 'Wave',
+		amplitude: 'Level',
+		spectrum: 'Spectrum',
+		spectrogram: 'Spectrogram',
+	}
 	const AudioContextClass = window.AudioContext || window.webkitAudioContext
 
 	if (!AudioContextClass) {
@@ -25,14 +32,16 @@
 	let nextSourceNumber = 1
 	let nextTrackNumber = 1
 	const trackKeys = new WeakMap()
-	let mode = 'spectrogram'
+	let defaultMode = 'spectrogram'
 	try {
 		const savedMode = localStorage.getItem(MODE_STORAGE_KEY)
-		if (['waveform', 'amplitude', 'spectrum', 'spectrogram'].includes(savedMode)) mode = savedMode
+		if (MODES.includes(savedMode)) defaultMode = savedMode
 	} catch {}
 	let animationFrame = 0
 	let scanTimer = 0
 	let destroyed = false
+	let collapsed = false
+	const modifiedCards = new Map()
 
 	const host = document.createElement('div')
 	host.id = HOST_ID
@@ -47,28 +56,23 @@
 				left: 16px;
 				bottom: 16px;
 				z-index: 2147483647;
-				width: min(420px, calc(100vw - 32px));
-				height: 250px;
-				min-width: 280px;
-				min-height: 150px;
+				width: min(340px, calc(100vw - 32px));
 				max-width: calc(100vw - 16px);
-				max-height: calc(100vh - 16px);
-				resize: both;
-				overflow: hidden;
+				overflow: visible;
 				color-scheme: light dark;
 				font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 			}
+			:host(.collapsed) { width: auto; }
 			* { box-sizing: border-box; }
 			[hidden] { display: none !important; }
 			.panel {
 				display: flex;
 				flex-direction: column;
-				height: 100%;
 				font: 14px/1.4 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 				color: #f5f7fa;
 				background: rgba(22, 27, 34, .96);
 				border: 1px solid rgba(255, 255, 255, .16);
-				border-radius: 12px;
+				border-radius: 11px;
 				box-shadow: 0 12px 40px rgba(0, 0, 0, .38);
 				overflow: hidden;
 			}
@@ -76,7 +80,7 @@
 				display: flex;
 				align-items: center;
 				gap: 8px;
-				min-height: 46px;
+				min-height: 44px;
 				padding: 6px 8px 6px 13px;
 				background: rgba(255, 255, 255, .055);
 				border-bottom: 1px solid rgba(255, 255, 255, .1);
@@ -94,9 +98,9 @@
 				text-align: center;
 				font-size: 12px;
 			}
-			button, select {
+			button {
 				appearance: none;
-				min-height: 32px;
+				min-height: 30px;
 				padding: 4px 9px;
 				color: inherit;
 				background: rgba(255, 255, 255, .08);
@@ -105,38 +109,33 @@
 				font: inherit;
 				cursor: pointer;
 			}
-			button:hover, button:focus-visible, select:hover, select:focus-visible { background: rgba(255, 255, 255, .16); outline: none; }
+			button:hover, button:focus-visible { background: rgba(255, 255, 255, .16); outline: none; }
 			button:disabled { cursor: wait; opacity: .55; }
-			.close { width: 32px; padding: 0; font-size: 19px; line-height: 1; }
-			.body { flex: 1; min-height: 0; padding: 10px; overflow: auto; }
+			.collapse { width: 30px; padding: 0; font-size: 20px; line-height: 1; }
+			.body { max-height: min(280px, calc(100vh - 90px)); padding: 8px; overflow: auto; border-top: 1px solid rgba(255, 255, 255, .1); }
 			.empty {
-				display: grid;
-				place-items: center;
-				height: 100%;
-				padding: 18px;
+				padding: 9px 10px;
 				color: #aeb6c2;
 				text-align: center;
 			}
-			.lanes { display: grid; gap: 9px; }
-			.lane {
-				display: grid;
-				grid-template-columns: minmax(80px, 118px) 1fr;
+			.lanes { display: grid; gap: 7px; }
+			.reopen {
+				display: inline-flex;
 				align-items: center;
-				gap: 9px;
-				min-height: 62px;
-				padding: 7px 8px;
-				background: rgba(255, 255, 255, .045);
-				border-radius: 8px;
+				gap: 8px;
+				min-height: 42px;
+				padding: 7px 13px;
+				color: #f5f7fa;
+				background: rgba(22, 27, 34, .96);
+				border: 1px solid rgba(255, 255, 255, .16);
+				border-radius: 999px;
+				box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+				font-weight: 650;
+				white-space: nowrap;
 			}
-			.identity { min-width: 0; }
-			.label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dce2ea; }
-			.meta { display: block; margin-top: 2px; color: #8d98a7; font-size: 10px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; }
-			.scope { position: relative; height: 46px; min-width: 0; overflow: hidden; border-radius: 5px; background: #0b1118; }
-			canvas { display: block; width: 100%; height: 100%; }
-			.level { position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg, #4ade80, #facc15, #fb7185); transform: scaleX(0); transform-origin: left; }
 			@media (max-width: 420px) {
-				:host { left: 8px; bottom: 8px; width: calc(100vw - 16px); }
-				.lane { grid-template-columns: 92px 1fr; }
+				:host { left: 8px; bottom: 8px; width: min(320px, calc(100vw - 16px)); }
+				:host(.collapsed) { width: auto; }
 				.mic { display: none; }
 			}
 		</style>
@@ -144,34 +143,29 @@
 			<div class="header">
 				<span class="title">Talk waveforms</span>
 				<span class="count" aria-label="Audio source count">0</span>
-				<select class="mode" title="Visualization mode" aria-label="Visualization mode">
-					<option value="waveform">Wave</option>
-					<option value="amplitude">Level · 15s</option>
-					<option value="spectrum">Spectrum</option>
-					<option value="spectrogram">Spectrogram</option>
-				</select>
-				<button class="mic" type="button" title="Capture the microphone directly">Mic</button>
-				<button class="close" type="button" title="Close" aria-label="Close Talk waveforms">&times;</button>
+				<button class="mic" type="button" title="Direct microphone fallback">Mic test</button>
+				<button class="collapse" type="button" title="Collapse" aria-label="Collapse Talk waveforms">&minus;</button>
 			</div>
 			<div class="body">
-				<div class="empty">Waiting for Talk audio. Join the call, or use Mic for a direct microphone test.</div>
+				<div class="empty">Waiting for Talk audio. Visualizations will attach to participant cards.</div>
 				<div class="lanes"></div>
 			</div>
-		</div>`
+		</div>
+		<button class="reopen" type="button" hidden aria-label="Reopen Talk waveforms">Talk waveforms <span class="count">0</span></button>`
 
+	const panel = shadow.querySelector('.panel')
 	const header = shadow.querySelector('.header')
-	const count = shadow.querySelector('.count')
+	const count = shadow.querySelector('.panel .count')
+	const body = shadow.querySelector('.body')
 	const empty = shadow.querySelector('.empty')
 	const lanes = shadow.querySelector('.lanes')
-	const modeButton = shadow.querySelector('.mode')
-	modeButton.value = mode
 	const micButton = shadow.querySelector('.mic')
-	const closeButton = shadow.querySelector('.close')
+	const collapseButton = shadow.querySelector('.collapse')
+	const reopenButton = shadow.querySelector('.reopen')
+	const reopenCount = reopenButton.querySelector('.count')
 
 	try {
 		const placement = JSON.parse(localStorage.getItem(STORAGE_KEY))
-		if (Number.isFinite(placement?.width)) host.style.width = `${Math.max(280, placement.width)}px`
-		if (Number.isFinite(placement?.height)) host.style.height = `${Math.max(150, placement.height)}px`
 		if (Number.isFinite(placement?.left) && Number.isFinite(placement?.top)) {
 			host.style.left = `${Math.max(0, Math.min(window.innerWidth - 80, placement.left))}px`
 			host.style.top = `${Math.max(0, Math.min(window.innerHeight - 46, placement.top))}px`
@@ -234,7 +228,21 @@
 	}
 
 	function sourceMeta(direction, origin) {
-		return `${direction === 'local' ? 'Local' : 'Remote'} · ${origin === 'webrtc' ? 'WebRTC' : origin === 'capture' ? 'Capture' : 'DOM'}`
+		if (origin === 'webrtc') return direction === 'local' ? 'Local · WebRTC sender' : 'Remote · WebRTC receiver'
+		return `${direction === 'local' ? 'Local' : 'Remote'} · ${origin === 'capture' ? 'Direct mic test' : 'DOM fallback'}`
+	}
+
+	function participantCardFor(element) {
+		return element?.closest?.([
+			'.video-container',
+			'.localVideoContainer',
+			'[class*="video-container"]',
+			'[data-testid*="participant"]',
+			'[class*="participant-card"]',
+			'[class*="participant-tile"]',
+			'[class*="call-view__participant"]',
+			'[class*="remote-video"]',
+		].join(',')) || null
 	}
 
 	function isLocalMediaElement(element) {
@@ -243,34 +251,172 @@
 		return element.muted
 	}
 
-	function associateDomTrack(stream) {
+	function associateDomTrack(stream, direction) {
 		const audioTracks = stream.getAudioTracks().filter((track) => track.readyState === 'live')
 		if (audioTracks.length !== 1) return
 		const track = audioTracks[0]
 		const currentKey = trackKeys.get(track)
 		if (currentKey && sources.has(currentKey)) return
-		const receiverSource = [...sources.values()].find((source) => (
+		const webRtcSource = [...sources.values()].find((source) => (
 			source.origin === 'webrtc'
-			&& source.direction === 'remote'
+			&& source.direction === direction
 			&& source.trackId === track.id
 			&& source.elements.size === 0
 		))
-		if (receiverSource) trackKeys.set(track, receiverSource.key)
+		if (webRtcSource) trackKeys.set(track, webRtcSource.key)
+	}
+
+	function restoreCard(card) {
+		if (!card || [...sources.values()].some((source) => source.card === card)) return
+		if (!modifiedCards.has(card)) return
+		card.style.position = modifiedCards.get(card)
+		modifiedCards.delete(card)
+	}
+
+	function mountSource(source, element = null) {
+		const nextCard = participantCardFor(element)
+		const previousCard = source.card
+		if (nextCard) {
+			if (!modifiedCards.has(nextCard) && getComputedStyle(nextCard).position === 'static') {
+				modifiedCards.set(nextCard, nextCard.style.position)
+				nextCard.style.position = 'relative'
+			}
+			source.card = nextCard
+			source.viewHost.dataset.placement = 'card'
+			nextCard.append(source.viewHost)
+		} else if (!source.card?.isConnected) {
+			source.card = null
+			source.viewHost.dataset.placement = 'fallback'
+			lanes.append(source.viewHost)
+		}
+		source.viewHost.hidden = collapsed
+		if (previousCard && previousCard !== nextCard) restoreCard(previousCard)
+		updateEmptyState()
 	}
 
 	function updateEmptyState() {
 		count.textContent = String(sources.size)
+		reopenCount.textContent = String(sources.size)
 		empty.hidden = sources.size > 0
-		lanes.hidden = sources.size === 0
+		const fallbackCount = [...sources.values()].filter((source) => !source.card?.isConnected).length
+		lanes.hidden = fallbackCount === 0
+		body.hidden = sources.size > 0 && fallbackCount === 0
+		const hasLocalSource = [...sources.values()].some((source) => source.direction === 'local' && source.origin !== 'capture')
+		micButton.disabled = hasLocalSource
+		micButton.title = hasLocalSource ? 'Talk outgoing audio is already detected' : 'Direct microphone fallback'
 	}
 
 	function removeSource(key) {
 		const source = sources.get(key)
 		if (!source) return
 		try { source.node.disconnect() } catch {}
-		source.lane.remove()
+		const card = source.card
+		source.viewHost.remove()
 		sources.delete(key)
+		restoreCard(card)
 		updateEmptyState()
+	}
+
+	function createSourceView(source) {
+		const viewHost = document.createElement('div')
+		viewHost.className = 'nctalk-waveform-source'
+		viewHost.dataset.placement = 'fallback'
+		viewHost.setAttribute('role', 'group')
+		const viewShadow = viewHost.attachShadow({ mode: 'open' })
+		viewShadow.innerHTML = `
+			<style>
+				:host {
+					all: initial;
+					display: block;
+					height: 72px;
+					min-width: 0;
+					box-sizing: border-box;
+					color-scheme: dark;
+					font: 12px/1.25 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+				}
+				:host([hidden]) { display: none; }
+				:host([data-placement="card"]) {
+					position: absolute;
+					left: 8px;
+					right: 8px;
+					bottom: 8px;
+					z-index: 30;
+					pointer-events: none;
+				}
+				* { box-sizing: border-box; }
+				.view {
+					position: relative;
+					height: 100%;
+					overflow: hidden;
+					color: #f5f7fa;
+					background: rgba(7, 16, 24, .86);
+					border: 1px solid rgba(255, 255, 255, .22);
+					border-radius: 8px;
+					box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
+					backdrop-filter: blur(5px);
+				}
+				canvas { display: block; width: 100%; height: 100%; }
+				.identity {
+					position: absolute;
+					left: 7px;
+					top: 6px;
+					z-index: 2;
+					max-width: calc(100% - 100px);
+					padding: 2px 5px;
+					border-radius: 4px;
+					background: rgba(0, 0, 0, .52);
+					pointer-events: none;
+				}
+				.label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
+				.meta { display: block; margin-top: 1px; color: #b2bdc8; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+				.mode {
+					position: absolute;
+					right: 6px;
+					top: 6px;
+					z-index: 3;
+					min-height: 25px;
+					padding: 2px 7px;
+					color: #f5f7fa;
+					background: rgba(0, 0, 0, .62);
+					border: 1px solid rgba(255, 255, 255, .26);
+					border-radius: 6px;
+					font: 10px/1 system-ui, sans-serif;
+					cursor: pointer;
+					pointer-events: auto;
+				}
+				.mode:hover, .mode:focus-visible { background: rgba(31, 41, 52, .92); outline: none; }
+				.level { position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg, #4ade80, #facc15, #fb7185); transform: scaleX(0); transform-origin: left; }
+			</style>
+			<div class="view">
+				<canvas></canvas>
+				<div class="identity"><span class="label"></span><span class="meta"></span></div>
+				<button class="mode" type="button"></button>
+				<div class="level"></div>
+			</div>`
+		source.viewHost = viewHost
+		source.viewShadow = viewShadow
+		source.labelElement = viewShadow.querySelector('.label')
+		source.metaElement = viewShadow.querySelector('.meta')
+		source.modeButton = viewShadow.querySelector('.mode')
+		source.canvas = viewShadow.querySelector('canvas')
+		source.level = viewShadow.querySelector('.level')
+		source.modeButton.addEventListener('click', async () => {
+			await resumeAudio()
+			source.mode = MODES[(MODES.indexOf(source.mode) + 1) % MODES.length]
+			updateSourceView(source)
+		})
+		updateSourceView(source)
+		return viewHost
+	}
+
+	function updateSourceView(source) {
+		source.labelElement.textContent = source.label
+		source.labelElement.title = source.label
+		source.metaElement.textContent = sourceMeta(source.direction, source.origin)
+		source.modeButton.textContent = MODE_LABELS[source.mode]
+		source.modeButton.title = `Change ${source.label} visualization (currently ${MODE_LABELS[source.mode]})`
+		source.modeButton.setAttribute('aria-label', source.modeButton.title)
+		source.canvas.setAttribute('aria-label', `${source.label} ${MODE_LABELS[source.mode]} visualization`)
 	}
 
 	function addStream(stream, options = {}) {
@@ -284,10 +430,8 @@
 		if (existing) {
 			const newLabel = cleanText(options.label)
 			const newLabelQuality = labelQuality(newLabel)
-			if (newLabel && newLabelQuality > existing.labelQuality) {
+			if (newLabel && (newLabelQuality > existing.labelQuality || options.senderTrack)) {
 				existing.label = newLabel
-				existing.labelElement.textContent = newLabel
-				existing.labelElement.title = newLabel
 				existing.labelQuality = newLabelQuality
 			}
 			if (options.origin === 'webrtc') {
@@ -298,9 +442,13 @@
 				if (options.origin === 'capture' || !existing.origin) existing.origin = options.origin
 			}
 			if (options.receiverTrack) existing.receiverTrack = options.receiverTrack
+			if (options.senderTrack) existing.senderTrack = options.senderTrack
 			existing.persistent ||= Boolean(options.persistent)
-			existing.metaElement.textContent = sourceMeta(existing.direction, existing.origin)
-			if (options.element) existing.elements.add(options.element)
+			if (options.element) {
+				existing.elements.add(options.element)
+				mountSource(existing, options.element)
+			}
+			updateSourceView(existing)
 			return existing
 		}
 
@@ -319,35 +467,15 @@
 		const providedLabel = cleanText(options.label)
 		const fallbackLabel = `Participant ${nextSourceNumber++}`
 		const label = providedLabel || fallbackLabel
-		const lane = document.createElement('div')
-		lane.className = 'lane'
-		const identity = document.createElement('div')
-		identity.className = 'identity'
-		const labelElement = document.createElement('span')
-		labelElement.className = 'label'
-		labelElement.textContent = label
-		labelElement.title = label
 		const direction = options.direction || 'remote'
 		const origin = options.origin || 'dom'
-		const metaElement = document.createElement('span')
-		metaElement.className = 'meta'
-		metaElement.textContent = sourceMeta(direction, origin)
-		identity.append(labelElement, metaElement)
-		const scope = document.createElement('div')
-		scope.className = 'scope'
-		const canvas = document.createElement('canvas')
-		canvas.setAttribute('aria-label', `${label} audio waveform`)
-		const level = document.createElement('div')
-		level.className = 'level'
-		scope.append(canvas, level)
-		lane.append(identity, scope)
-		lanes.append(lane)
 
 		const source = {
 			key,
 			stream,
 			trackId: audioTracks[0].id,
 			receiverTrack: options.receiverTrack || null,
+			senderTrack: options.senderTrack || null,
 			elements: new Set(options.element ? [options.element] : []),
 			owned: Boolean(options.owned),
 			persistent: Boolean(options.persistent),
@@ -355,13 +483,11 @@
 			origin,
 			node,
 			analyser,
-			lane,
+			card: null,
+			viewHost: null,
 			label,
-			labelElement,
-			metaElement,
 			labelQuality: labelQuality(label),
-			canvas,
-			level,
+			mode: defaultMode,
 			timeData: new Float32Array(analyser.fftSize),
 			frequencyData: new Uint8Array(analyser.frequencyBinCount),
 			amplitudeHistory: [],
@@ -371,7 +497,10 @@
 			spectrogramFrames: 0,
 			lastLevel: 0,
 		}
+		createSourceView(source)
+		source.lane = source.viewHost
 		sources.set(key, source)
+		mountSource(source, options.element)
 		for (const track of audioTracks) {
 			track.addEventListener('ended', () => {
 				if (!stream.getAudioTracks().some((candidate) => candidate.readyState === 'live')) removeSource(key)
@@ -387,12 +516,13 @@
 		for (const element of document.querySelectorAll('audio, video')) {
 			const stream = element.srcObject
 			if (!(stream instanceof MediaStream) || !stream.getAudioTracks().some((track) => track.readyState === 'live')) continue
-			associateDomTrack(stream)
+			const direction = isLocalMediaElement(element) ? 'local' : 'remote'
+			associateDomTrack(stream, direction)
 			seenElements.add(element)
 			addStream(stream, {
 				element,
 				label: guessLabel(element, stream),
-				direction: isLocalMediaElement(element) ? 'local' : 'remote',
+				direction,
 				origin: 'dom',
 			})
 		}
@@ -400,6 +530,10 @@
 		for (const [key, source] of sources) {
 			for (const element of source.elements) {
 				if (!element.isConnected || !(element.srcObject instanceof MediaStream) || trackKey(element.srcObject) !== key) source.elements.delete(element)
+			}
+			if (!source.card?.isConnected) {
+				const connectedElement = [...source.elements].find((element) => element.isConnected)
+				mountSource(source, connectedElement)
 			}
 			const live = source.stream.getAudioTracks().some((track) => track.readyState === 'live')
 			if (!live || (!source.owned && !source.persistent && source.elements.size === 0 && seenElements.size > 0)) removeSource(key)
@@ -537,9 +671,9 @@
 			context.clearRect(0, 0, width, height)
 			source.analyser.getFloatTimeDomainData(source.timeData)
 			const currentLevel = sampleAmplitude(source, now)
-			if (mode === 'waveform') drawWaveform(context, source, width, height)
-			else if (mode === 'amplitude') drawAmplitudeHistory(context, source, width, height, now)
-			else if (mode === 'spectrum') drawSpectrum(context, source, width, height)
+			if (source.mode === 'waveform') drawWaveform(context, source, width, height)
+			else if (source.mode === 'amplitude') drawAmplitudeHistory(context, source, width, height, now)
+			else if (source.mode === 'spectrum') drawSpectrum(context, source, width, height)
 			else drawSpectrogram(context, source, width, height, now)
 			source.lastLevel = Math.max(currentLevel, source.lastLevel * .82)
 			source.level.style.transform = `scaleX(${Math.min(1, source.lastLevel * 3.3)})`
@@ -559,8 +693,17 @@
 	const peerConnectionPrototype = window.RTCPeerConnection?.prototype
 	const originalSetRemoteDescription = peerConnectionPrototype?.setRemoteDescription
 	const originalGetReceivers = peerConnectionPrototype?.getReceivers
+	const originalGetSenders = peerConnectionPrototype?.getSenders
+	const originalAddTrack = peerConnectionPrototype?.addTrack
+	const originalAddTransceiver = peerConnectionPrototype?.addTransceiver
+	const senderPrototype = window.RTCRtpSender?.prototype
+	const originalReplaceTrack = senderPrototype?.replaceTrack
 	let wrappedSetRemoteDescription = null
 	let wrappedGetReceivers = null
+	let wrappedGetSenders = null
+	let wrappedAddTrack = null
+	let wrappedAddTransceiver = null
+	let wrappedReplaceTrack = null
 
 	function captureRemoteTrack(track) {
 		if (!(track instanceof MediaStreamTrack) || track.kind !== 'audio' || track.readyState !== 'live') return null
@@ -603,10 +746,34 @@
 		pendingTrackCleanups.set(track, cleanup)
 	}
 
+	function captureLocalTrack(track) {
+		if (!(track instanceof MediaStreamTrack) || track.kind !== 'audio' || track.readyState !== 'live') return null
+		const currentKey = trackKeys.get(track)
+		if (!currentKey || !sources.has(currentKey)) {
+			const domSource = [...sources.values()].find((source) => (
+				source.origin === 'dom'
+				&& source.direction === 'local'
+				&& !source.senderTrack
+				&& source.trackId === track.id
+			))
+			if (domSource) trackKeys.set(track, domSource.key)
+		}
+		return addStream(new MediaStream([track]), {
+			label: 'You',
+			direction: 'local',
+			origin: 'webrtc',
+			persistent: true,
+			senderTrack: track,
+		})
+	}
+
 	function inspectPeerConnection(peerConnection) {
 		if (!peerConnection || peerConnection.connectionState === 'closed') return
 		try {
 			for (const receiver of originalGetReceivers.call(peerConnection)) captureReceiverTrack(receiver.track)
+		} catch {}
+		try {
+			for (const sender of originalGetSenders.call(peerConnection)) captureLocalTrack(sender.track)
 		} catch {}
 	}
 
@@ -632,7 +799,7 @@
 		inspectPeerConnection(peerConnection)
 	}
 
-	if (originalSetRemoteDescription && originalGetReceivers) {
+	if (originalSetRemoteDescription && originalGetReceivers && originalGetSenders) {
 		wrappedSetRemoteDescription = function (...args) {
 			watchPeerConnection(this)
 			const result = originalSetRemoteDescription.apply(this, args)
@@ -645,34 +812,42 @@
 			for (const receiver of receivers) captureReceiverTrack(receiver.track)
 			return receivers
 		}
+		wrappedGetSenders = function (...args) {
+			watchPeerConnection(this)
+			const senders = originalGetSenders.apply(this, args)
+			for (const sender of senders) captureLocalTrack(sender.track)
+			return senders
+		}
+		wrappedAddTrack = function (track, ...streams) {
+			watchPeerConnection(this)
+			const sender = originalAddTrack.call(this, track, ...streams)
+			captureLocalTrack(track)
+			return sender
+		}
+		wrappedAddTransceiver = function (trackOrKind, ...args) {
+			watchPeerConnection(this)
+			const transceiver = originalAddTransceiver.call(this, trackOrKind, ...args)
+			if (trackOrKind instanceof MediaStreamTrack) captureLocalTrack(trackOrKind)
+			else captureLocalTrack(transceiver?.sender?.track)
+			return transceiver
+		}
+		wrappedReplaceTrack = function (track) {
+			const result = originalReplaceTrack.call(this, track)
+			captureLocalTrack(track)
+			return result
+		}
 		try {
 			peerConnectionPrototype.setRemoteDescription = wrappedSetRemoteDescription
 			peerConnectionPrototype.getReceivers = wrappedGetReceivers
+			peerConnectionPrototype.getSenders = wrappedGetSenders
+			if (originalAddTrack) peerConnectionPrototype.addTrack = wrappedAddTrack
+			if (originalAddTransceiver) peerConnectionPrototype.addTransceiver = wrappedAddTransceiver
+			if (originalReplaceTrack) senderPrototype.replaceTrack = wrappedReplaceTrack
 		} catch {}
 	}
 
 	const mediaDevices = navigator.mediaDevices
 	const originalGetUserMedia = mediaDevices?.getUserMedia
-	let wrappedGetUserMedia = null
-	if (originalGetUserMedia) {
-		wrappedGetUserMedia = async function (...args) {
-			const stream = await originalGetUserMedia.apply(this, args)
-			if (stream.getAudioTracks().length) addStream(stream, {
-				label: 'You',
-				direction: 'local',
-				origin: 'capture',
-				persistent: true,
-			})
-			return stream
-		}
-		try { mediaDevices.getUserMedia = wrappedGetUserMedia } catch {}
-	}
-
-	modeButton.addEventListener('change', async () => {
-		await resumeAudio()
-		mode = modeButton.value
-		try { localStorage.setItem(MODE_STORAGE_KEY, mode) } catch {}
-	})
 
 	micButton.addEventListener('click', async () => {
 		if (!originalGetUserMedia) return
@@ -682,7 +857,7 @@
 			const stream = await originalGetUserMedia.call(mediaDevices, { audio: true, video: false })
 			ownedStreams.add(stream)
 			addStream(stream, {
-				label: 'Microphone',
+				label: 'Microphone test',
 				owned: true,
 				persistent: true,
 				direction: 'local',
@@ -703,8 +878,6 @@
 			localStorage.setItem(STORAGE_KEY, JSON.stringify({
 				left: Math.round(bounds.left),
 				top: Math.round(bounds.top),
-				width: Math.round(bounds.width),
-				height: Math.round(bounds.height),
 			}))
 		} catch {}
 	}
@@ -732,6 +905,15 @@
 	})
 	const resizeObserver = new ResizeObserver(savePlacement)
 
+	function setCollapsed(value) {
+		collapsed = Boolean(value)
+		host.classList.toggle('collapsed', collapsed)
+		panel.hidden = collapsed
+		reopenButton.hidden = !collapsed
+		for (const source of sources.values()) source.viewHost.hidden = collapsed
+		savePlacement()
+	}
+
 	function destroy() {
 		if (destroyed) return
 		destroyed = true
@@ -741,6 +923,7 @@
 		for (const stream of ownedStreams) stream.getTracks().forEach((track) => track.stop())
 		for (const source of sources.values()) {
 			try { source.node.disconnect() } catch {}
+			source.viewHost.remove()
 		}
 		for (const cleanup of peerConnectionCleanups.values()) cleanup()
 		peerConnectionCleanups.clear()
@@ -753,16 +936,33 @@
 		if (peerConnectionPrototype?.getReceivers === wrappedGetReceivers) {
 			try { peerConnectionPrototype.getReceivers = originalGetReceivers } catch {}
 		}
-		sources.clear()
-		if (mediaDevices?.getUserMedia === wrappedGetUserMedia) {
-			try { mediaDevices.getUserMedia = originalGetUserMedia } catch {}
+		if (peerConnectionPrototype?.getSenders === wrappedGetSenders) {
+			try { peerConnectionPrototype.getSenders = originalGetSenders } catch {}
 		}
+		if (peerConnectionPrototype?.addTrack === wrappedAddTrack) {
+			try { peerConnectionPrototype.addTrack = originalAddTrack } catch {}
+		}
+		if (peerConnectionPrototype?.addTransceiver === wrappedAddTransceiver) {
+			try { peerConnectionPrototype.addTransceiver = originalAddTransceiver } catch {}
+		}
+		if (senderPrototype?.replaceTrack === wrappedReplaceTrack) {
+			try { senderPrototype.replaceTrack = originalReplaceTrack } catch {}
+		}
+		sources.clear()
+		for (const [card, originalPosition] of modifiedCards) {
+			card.style.position = originalPosition
+		}
+		modifiedCards.clear()
 		void audioContext.close()
 		host.remove()
 		if (window[GLOBAL_KEY]?.destroy === destroy) delete window[GLOBAL_KEY]
 	}
 
-	closeButton.addEventListener('click', destroy)
+	collapseButton.addEventListener('click', () => setCollapsed(true))
+	reopenButton.addEventListener('click', async () => {
+		await resumeAudio()
+		setCollapsed(false)
+	})
 	host.addEventListener('pointerdown', resumeAudio, { once: true })
 	document.documentElement.append(host)
 	resizeObserver.observe(host)
@@ -778,7 +978,10 @@
 		peerConnections,
 		scan,
 		addStream,
-		get mode() { return mode },
+		get mode() { return defaultMode },
+		get collapsed() { return collapsed },
+		collapse: () => setCollapsed(true),
+		reopen: () => setCollapsed(false),
 		destroy,
 	}
 })()

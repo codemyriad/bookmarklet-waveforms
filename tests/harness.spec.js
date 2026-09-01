@@ -9,9 +9,11 @@ const projectRoot = path.join(__dirname, '..')
 const gocassiniRoot = path.resolve(projectRoot, '..', 'gocassini')
 const speechFixture = path.join(gocassiniRoot, 'harness', 'media', 'parakeet-smoke.mkv')
 const loaderPath = path.join(projectRoot, 'bookmarklet-loader.js')
-const scriptPath = path.join(projectRoot, 'nctalk-waveform.0.2.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.2.0.js'
+const scriptPath = path.join(projectRoot, 'nctalk-waveform.0.3.0.js')
+const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.0.js'
 const normalChromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
+const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
+const participantExecutablePath = fs.existsSync(systemChrome) ? systemChrome : undefined
 
 test.skip(!callUrl, 'Set HARNESS_CALL_URL to a room in the Gocassini Talk harness')
 
@@ -43,6 +45,11 @@ async function joinTalkCall(page, name, { navigate = true } = {}) {
 			if (deviceJoinVisible) break
 		}
 		const callButton = page.getByRole('button', { name: /^(Start|Join) call$/ }).first()
+		const disabledReason = await callButton.getAttribute('title')
+		if (disabledReason?.includes('server was updated')) {
+			await page.reload({ waitUntil: 'domcontentloaded' })
+			return joinTalkCall(page, name, { navigate: false })
+		}
 		await expect(callButton).toBeEnabled({ timeout: 30_000 })
 		await callButton.click({ timeout: 10_000 })
 		deviceJoinVisible = await deviceJoin.waitFor({ state: 'visible', timeout: 10_000 })
@@ -56,7 +63,19 @@ async function joinTalkCall(page, name, { navigate = true } = {}) {
 	await expect(page.getByRole('button', { name: 'Leave call' })).toBeVisible({ timeout: 30_000 })
 }
 
-test('separates every Gocassini participant at the WebRTC receiver boundary', async ({ page }) => {
+async function prepareObserverPage(page, name) {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await expect(page.locator('#app-content-vue')).toBeAttached({ timeout: 30_000 })
+		await submitGuestName(page, name, 5_000)
+		const callButton = page.getByRole('button', { name: /^(Start|Join) call$/ }).first()
+		const disabledReason = await callButton.getAttribute('title')
+		if (!disabledReason?.includes('server was updated')) return
+		await page.reload({ waitUntil: 'domcontentloaded' })
+	}
+	throw new Error('Talk continued to request a reload after the server update')
+}
+
+test('separates every Gocassini participant at the WebRTC receiver boundary', async ({ page }, testInfo) => {
 	test.setTimeout(150_000)
 	const mediaDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'talk-waveforms-'))
 	const speechWav = path.join(mediaDirectory, 'speech.wav')
@@ -76,15 +95,21 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 
 	try {
 		await page.goto(callUrl, { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('#app-content-vue')).toBeAttached({ timeout: 30_000 })
 		const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
-		await page.evaluate(loader)
-		await expect(page.locator('#nctalk-waveform')).toBeAttached()
-		await joinTalkCall(page, 'Waveform observer', { navigate: false })
+		let observerHooked = false
+		for (let attempt = 0; attempt < 3 && !observerHooked; attempt++) {
+			if (attempt > 0) await page.reload({ waitUntil: 'domcontentloaded' })
+			await prepareObserverPage(page, 'Waveform observer')
+			await page.evaluate(loader)
+			await expect(page.locator('#nctalk-waveform')).toBeAttached()
+			await joinTalkCall(page, 'Waveform observer', { navigate: false })
+			observerHooked = await page.evaluate(() => Boolean(window.__NCTALK_WAVEFORM__))
+		}
+		if (!observerHooked) throw new Error('Talk reloaded after bookmarklet injection three times')
 
 		participantBrowser = await chromium.launch({
 			headless: true,
-			executablePath: '/usr/bin/google-chrome',
+			...(participantExecutablePath ? { executablePath: participantExecutablePath } : {}),
 			args: [
 				'--autoplay-policy=no-user-gesture-required',
 				'--use-fake-device-for-media-stream',
@@ -151,6 +176,36 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 		)), { timeout: 10_000 }).toEqual([...participantNames].sort())
 		expect(remoteSources.every((source) => source.trackCount === 1)).toBe(true)
 		expect(remoteSources.some((source) => source.level > 0)).toBe(true)
+		await expect.poll(() => page.evaluate(() => (
+			[...window.__NCTALK_WAVEFORM__.sources.values()]
+				.filter((source) => source.direction === 'remote' && source.origin === 'webrtc')
+				.every((source) => source.viewHost.dataset.placement === 'card' && source.card?.isConnected)
+		)), { timeout: 10_000 }).toBe(true)
+
+		await expect.poll(() => page.evaluate(() => (
+			[...window.__NCTALK_WAVEFORM__.sources.values()]
+				.filter((source) => source.direction === 'local').length
+		)), { timeout: 10_000 }).toBe(1)
+		expect(await page.evaluate(() => {
+			const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+				.find((candidate) => candidate.direction === 'local')
+			return {
+				origin: source.origin,
+				hasSenderTrack: Boolean(source.senderTrack),
+				placement: source.viewHost.dataset.placement,
+				mode: source.mode,
+				micEnabled: !window.__NCTALK_WAVEFORM__.host.shadowRoot.querySelector('.mic').disabled,
+			}
+		})).toEqual({
+			origin: 'webrtc',
+			hasSenderTrack: true,
+			placement: 'card',
+			mode: 'spectrogram',
+			micEnabled: false,
+		})
+		await expect(page.locator('.video-container > .nctalk-waveform-source')).toHaveCount(3)
+		await expect(page.locator('.localVideoContainer > .nctalk-waveform-source')).toHaveCount(1)
+		await page.screenshot({ path: testInfo.outputPath('gocassini-participant-overlays.png') })
 	} finally {
 		await participantBrowser?.close()
 		fs.rmSync(mediaDirectory, { recursive: true, force: true })

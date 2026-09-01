@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test')
 
-const homepageUrl = 'https://silvio-talk-waveforms.pgs.sh/'
-const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.2.0.js'
+const homepageUrl = process.env.HOMEPAGE_URL || 'https://silvio-talk-waveforms.pgs.sh/'
+const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.0.js'
 
 test('homepage prepares a draggable and copyable bookmarklet', async ({ page, context }) => {
 	await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: homepageUrl })
@@ -19,7 +19,9 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.locator('#status')).toHaveText('Copied. Paste it into a bookmark’s URL field.')
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(href)
 
-	const payloadResponse = await page.request.get(payloadUrl)
-	expect(payloadResponse.status()).toBe(200)
-	expect(await payloadResponse.text()).toContain("const VERSION = '0.2.0'")
+	if (process.env.LOCAL_HOMEPAGE !== '1') {
+		const payloadResponse = await page.request.get(payloadUrl)
+		expect(payloadResponse.status()).toBe(200)
+		expect(await payloadResponse.text()).toContain("const VERSION = '0.3.0'")
+	}
 })

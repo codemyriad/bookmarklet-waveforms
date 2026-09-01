@@ -1,12 +1,13 @@
 {
   "name": "bookmarklet-waveforms",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "test": "playwright test",
     "test:local": "LOCAL_ASSET=1 playwright test tests/smoke.spec.js",
+    "test:fixture": "LOCAL_FIXTURE=1 LOCAL_ASSET=1 LOCAL_HOMEPAGE=1 TALK_URL=http://127.0.0.1:4173/call/test HOMEPAGE_URL=http://127.0.0.1:4173/ playwright test tests/smoke.spec.js tests/homepage.spec.js",
     "test:harness": "HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Waveform browser test' | tail -n1)\" playwright test tests/harness.spec.js",
-    "deploy": "rsync -v -- site/index.html site/install.js bookmarklet-loader.js nctalk-waveform.0.2.0.js pgs.sh:/talk-waveforms/"
+    "deploy": "rsync -v -- site/index.html site/install.js bookmarklet-loader.js nctalk-waveform.0.3.0.js pgs.sh:/talk-waveforms/"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1"

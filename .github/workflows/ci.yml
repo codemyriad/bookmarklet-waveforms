@@ -1,0 +1,128 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+
+concurrency:
+  group: bookmarklet-waveforms-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  fixture:
+    name: Bookmarklet and installer fixture
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:fixture
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fixture-test-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  talk-compatibility:
+    name: ${{ matrix.generation }} — Nextcloud ${{ matrix.nextcloud_version }} / Talk ${{ matrix.talk_version }}
+    runs-on: ubuntu-latest
+    needs: fixture
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - generation: past
+            nextcloud: bookmarklet-waveforms-nextcloud:past
+            nextcloud_base: nextcloud:33
+            nextcloud_version: '33'
+            talk_version: '23.0.10'
+            talk_archive: https://github.com/nextcloud-releases/spreed/releases/download/v23.0.10/spreed-v23.0.10.tar.gz
+            groupfolders_archive: https://github.com/nextcloud-releases/groupfolders/releases/download/v21.0.15/groupfolders-v21.0.15.tar.gz
+          - generation: current
+            nextcloud: bookmarklet-waveforms-nextcloud:current
+            nextcloud_base: nextcloud:34.0.0
+            nextcloud_version: '34.0.0'
+            talk_version: '24.0.4'
+            talk_archive: https://github.com/nextcloud-releases/spreed/releases/download/v24.0.4/spreed-v24.0.4.tar.gz
+            groupfolders_archive: https://github.com/nextcloud-releases/groupfolders/releases/download/v22.0.6/groupfolders-v22.0.6.tar.gz
+          - generation: future
+            nextcloud: bookmarklet-waveforms-nextcloud:future
+            nextcloud_version: '35.0.0-rc2'
+            talk_version: '25.0.0-rc.1'
+            talk_archive: https://github.com/nextcloud-releases/spreed/releases/download/v25.0.0-rc.1/spreed-v25.0.0-rc.1.tar.gz
+            groupfolders_archive: https://github.com/nextcloud-releases/groupfolders/releases/download/v23.0.0/groupfolders-v23.0.0.tar.gz
+    steps:
+      - name: Checkout bookmarklet
+        uses: actions/checkout@v4
+        with:
+          path: bookmarklet-waveforms
+      - name: Checkout Gocassini harness
+        uses: actions/checkout@v4
+        with:
+          repository: codemyriad/gocassini
+          path: gocassini
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: bookmarklet-waveforms/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: gocassini/cassini-go-recorder/go.mod
+          cache-dependency-path: gocassini/cassini-go-recorder/go.sum
+      - name: Install runtime tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg jq ripgrep
+          cd bookmarklet-waveforms
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Build past/current image with pinned apps
+        if: matrix.generation != 'future'
+        run: |
+          docker build \
+            --build-arg "NEXTCLOUD_BASE=${{ matrix.nextcloud_base }}" \
+            --build-arg "TALK_ARCHIVE=${{ matrix.talk_archive }}" \
+            --build-arg "GROUPFOLDERS_ARCHIVE=${{ matrix.groupfolders_archive }}" \
+            --file bookmarklet-waveforms/tests/nextcloud-with-apps.Dockerfile \
+            --tag "${{ matrix.nextcloud }}" \
+            bookmarklet-waveforms
+      - name: Build next Nextcloud with matching Talk pre-release
+        if: matrix.generation == 'future'
+        run: |
+          docker build \
+            --build-arg "TALK_ARCHIVE=${{ matrix.talk_archive }}" \
+            --build-arg "GROUPFOLDERS_ARCHIVE=${{ matrix.groupfolders_archive }}" \
+            --file bookmarklet-waveforms/tests/nextcloud-future.Dockerfile \
+            --tag bookmarklet-waveforms-nextcloud:future \
+            bookmarklet-waveforms
+      - name: Start Talk harness
+        env:
+          NEXTCLOUD_IMAGE: ${{ matrix.nextcloud }}
+          PROJECT_NAME: bookmarklet-waveforms-ci
+        run: ./gocassini/bin/cassini dev stack up --services full --recording-backend none --reset
+      - name: Run four-browser participant test
+        working-directory: bookmarklet-waveforms
+        run: npm run test:harness
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: talk-${{ matrix.generation }}-test-results
+          path: bookmarklet-waveforms/test-results/
+          if-no-files-found: ignore
+      - name: Stop Talk harness
+        if: always()
+        env:
+          NEXTCLOUD_IMAGE: ${{ matrix.nextcloud }}
+          PROJECT_NAME: bookmarklet-waveforms-ci
+        run: ./gocassini/bin/cassini dev stack down --volumes --services full --recording-backend none
