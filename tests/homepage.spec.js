@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test')
 
 const homepageUrl = process.env.HOMEPAGE_URL || 'https://silvio-talk-waveforms.pgs.sh/'
-const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.3.js'
+const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.4.0.js'
 
 test('homepage prepares a draggable and copyable bookmarklet', async ({ page, context }) => {
 	await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: homepageUrl })
@@ -11,7 +11,7 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 
 	await expect(page).toHaveTitle('Talk waveforms')
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('See the call audio.')
-	await expect(page.locator('.lede')).toHaveText('See what others hear from your mic—and whose mic that bark, buzz, or background noise came from.')
+	await expect(page.locator('.lede')).toHaveText('See what others hear from your mic—and whose mic that bark, buzz, or background noise came from—in Nextcloud Talk or Jitsi Meet.')
 	await expect(page.getByRole('link', { name: 'Code Myriad homepage' })).toHaveAttribute('href', 'https://codemyriad.io/')
 	await expect(page.getByRole('link', { name: 'Made by Code Myriad' })).toHaveAttribute('href', 'https://codemyriad.io/')
 	await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/favicon.0.3.3.svg')
@@ -43,11 +43,17 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await page.keyboard.press('Backquote')
 	expect(await page.evaluate(() => window.__keyboardShortcutDestination)).toBe('https://codemyriad.io/')
 
-	const showcase = page.locator('.showcase img')
-	await expect(showcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.0.3.3.png')
-	await expect(showcase).toHaveJSProperty('complete', true)
-	await expect(showcase).toHaveJSProperty('naturalWidth', 1280)
-	await expect(showcase).toHaveJSProperty('naturalHeight', 800)
+	const showcases = page.locator('.showcase img')
+	await expect(showcases).toHaveCount(2)
+	const jitsiShowcase = showcases.first()
+	await expect(jitsiShowcase).toHaveAttribute('src', '/assets/jitsi-waveforms-showcase.0.4.0.png')
+	await expect(jitsiShowcase).toHaveJSProperty('complete', true)
+	await expect(jitsiShowcase).toHaveJSProperty('naturalWidth', 2560)
+	await expect(jitsiShowcase).toHaveJSProperty('naturalHeight', 1600)
+	await expect(page.locator('.showcase figcaption')).toHaveText([
+		'Jitsi MeetFour participants · three views',
+		'Nextcloud TalkOne graph per microphone',
+	])
 	const bookmarklet = page.locator('#bookmarklet')
 	await expect(bookmarklet).toHaveClass(/ready/)
 	await expect(bookmarklet).toHaveAttribute('draggable', 'true')
@@ -69,12 +75,12 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 		})
 	})
 	await page.evaluate(href.replace(/^javascript:/, ''))
-	expect(await wrongPageMessage).toBe('This is not Nextcloud Talk. Retry there!')
+	expect(await wrongPageMessage).toBe('Open a Nextcloud Talk or Jitsi Meet call and retry.')
 
 	if (process.env.LOCAL_HOMEPAGE !== '1') {
 		const payloadResponse = await page.request.get(payloadUrl)
 		expect(payloadResponse.status()).toBe(200)
-		expect(await payloadResponse.text()).toContain("const VERSION = '0.3.3'")
+		expect(await payloadResponse.text()).toContain("const VERSION = '0.4.0'")
 	}
 })
 

@@ -1,8 +1,9 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.3.3'
+	const VERSION = '0.4.0'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
+	const PUBLIC_GLOBAL_KEY = '__TALK_WAVEFORMS__'
 	const HOST_ID = 'nctalk-waveform'
 	const STORAGE_KEY = 'nctalk-waveform-placement'
 	const HISTORY_WINDOW_MS = 15_000
@@ -21,10 +22,11 @@
 	const AudioContextClass = window.AudioContext || window.webkitAudioContext
 
 	if (!AudioContextClass) {
-		window.alert('Talk waveform: Web Audio is not supported by this browser.')
+		window.alert('Talk waveforms: Web Audio is not supported by this browser.')
 		return
 	}
 
+	window[PUBLIC_GLOBAL_KEY]?.destroy?.()
 	window[GLOBAL_KEY]?.destroy?.()
 	document.getElementById(HOST_ID)?.remove()
 
@@ -35,6 +37,7 @@
 	let nextTrackNumber = 1
 	const trackKeys = new WeakMap()
 	const defaultMode = 'spectrogram'
+	const isJitsiRuntime = Boolean(window.APP?.store?.getState && window.JitsiMeetJS)
 	let animationFrame = 0
 	let sampleTimer = 0
 	let scanTimer = 0
@@ -176,7 +179,7 @@
 				<button class="collapse" type="button" title="Collapse" aria-label="Collapse Talk waveforms">&minus;</button>
 			</div>
 			<div class="body">
-				<div class="empty">Waiting for Talk audio. Visualizations will attach to participant cards.</div>
+				<div class="empty">Waiting for call audio. Visualizations will attach to participant cards.</div>
 				<div class="lanes"></div>
 			</div>
 		</div>
@@ -246,6 +249,8 @@
 		const nameSelectors = [
 			'.video-container__user-name',
 			'.video-container__name',
+			'.displayname',
+			'[id$="_name"]',
 			'[data-testid*="name"]',
 			'[class*="participant-name"]',
 			'[class*="user-name"]',
@@ -267,6 +272,9 @@
 		return element?.closest?.([
 			'.video-container',
 			'.localVideoContainer',
+			'.videocontainer',
+			'#localVideoContainer',
+			'[id^="participant_"]',
 			'[class*="video-container"]',
 			'[data-testid*="participant"]',
 			'[class*="participant-card"]',
@@ -277,7 +285,7 @@
 	}
 
 	function isLocalMediaElement(element) {
-		if (element.closest?.('.localVideoContainer, [class*="local-video"], [class*="localVideo"]')) return true
+		if (element.closest?.('.localVideoContainer, #localVideoContainer, [class*="local-video"], [class*="localVideo"]')) return true
 		if (element.closest?.('.video-container, [class*="participant"], [class*="remote-video"], [class*="remoteVideo"]')) return false
 		return element.muted
 	}
@@ -304,8 +312,8 @@
 		modifiedCards.delete(card)
 	}
 
-	function mountSource(source, element = null) {
-		const nextCard = participantCardFor(element)
+	function mountSource(source, element = null, explicitCard = null) {
+		const nextCard = explicitCard?.isConnected ? explicitCard : participantCardFor(element)
 		const previousCard = source.card
 		if (nextCard) {
 			if (!modifiedCards.has(nextCard) && getComputedStyle(nextCard).position === 'static') {
@@ -334,7 +342,7 @@
 		body.hidden = sources.size > 0 && fallbackCount === 0
 		const hasLocalSource = [...sources.values()].some((source) => source.direction === 'local' && source.origin !== 'capture')
 		micButton.disabled = hasLocalSource
-		micButton.title = hasLocalSource ? 'Talk outgoing audio is already detected' : 'Direct microphone fallback'
+		micButton.title = hasLocalSource ? 'Outgoing call audio is already detected' : 'Direct microphone fallback'
 	}
 
 	function removeSource(key) {
@@ -520,7 +528,7 @@
 		if (existing) {
 			const newLabel = cleanText(options.label)
 			const newLabelQuality = labelQuality(newLabel)
-			if (newLabel && (newLabelQuality > existing.labelQuality || options.senderTrack)) {
+			if (newLabel && (newLabelQuality > existing.labelQuality || options.authoritativeLabel || options.senderTrack)) {
 				existing.label = newLabel
 				existing.labelQuality = newLabelQuality
 			}
@@ -533,11 +541,13 @@
 			}
 			if (options.receiverTrack) existing.receiverTrack = options.receiverTrack
 			if (options.senderTrack) existing.senderTrack = options.senderTrack
+			if (options.jitsiParticipantId) existing.jitsiParticipantId = options.jitsiParticipantId
 			existing.persistent ||= Boolean(options.persistent)
 			if (options.element) {
 				existing.elements.add(options.element)
-				mountSource(existing, options.element)
+				mountSource(existing, options.element, options.card)
 			}
+			else if (options.card) mountSource(existing, null, options.card)
 			updateSourceView(existing)
 			return existing
 		}
@@ -546,7 +556,7 @@
 		try {
 			node = audioContext.createMediaStreamSource(stream)
 		} catch (error) {
-			console.warn('Talk waveform could not analyse a media stream:', error)
+			console.warn('Talk waveforms could not analyse a media stream:', error)
 			return null
 		}
 		const analyser = audioContext.createAnalyser()
@@ -571,6 +581,7 @@
 			persistent: Boolean(options.persistent),
 			direction,
 			origin,
+			jitsiParticipantId: options.jitsiParticipantId || null,
 			node,
 			analyser,
 			card: null,
@@ -612,7 +623,7 @@
 		createSourceView(source)
 		source.lane = source.viewHost
 		sources.set(key, source)
-		mountSource(source, options.element)
+		mountSource(source, options.element, options.card)
 		for (const track of audioTracks) {
 			track.addEventListener('ended', () => {
 				if (!stream.getAudioTracks().some((candidate) => candidate.readyState === 'live')) removeSource(key)
@@ -622,8 +633,40 @@
 		return source
 	}
 
+	function scanJitsiTracks() {
+		const state = window.APP?.store?.getState?.()
+		const tracks = state?.['features/base/tracks']
+		const participants = state?.['features/base/participants']
+		if (!Array.isArray(tracks) || !participants) return
+
+		for (const trackState of tracks) {
+			if (trackState?.mediaType !== 'audio') continue
+			const jitsiTrack = trackState.jitsiTrack
+			const track = jitsiTrack?.getTrack?.()
+			if (!(track instanceof MediaStreamTrack) || track.readyState !== 'live') continue
+			const local = Boolean(trackState.local)
+			const participantId = trackState.participantId || jitsiTrack?.getParticipantId?.()
+			const participant = local ? participants.local : participants.remote?.get?.(participantId)
+			const card = local
+				? document.querySelector('#localVideoContainer')
+				: document.getElementById(`participant_${participantId}`)
+			const source = addStream(new MediaStream([track]), {
+				label: local ? 'You' : participant?.name,
+				authoritativeLabel: true,
+				direction: local ? 'local' : 'remote',
+				origin: 'webrtc',
+				persistent: true,
+				card,
+				jitsiParticipantId: participantId,
+				...(local ? { senderTrack: track } : { receiverTrack: track }),
+			})
+			if (source && card && source.card !== card) mountSource(source, null, card)
+		}
+	}
+
 	function scan() {
 		if (destroyed) return
+		scanJitsiTracks()
 		const seenElements = new Set()
 		for (const element of document.querySelectorAll('audio, video')) {
 			const stream = element.srcObject
@@ -938,7 +981,10 @@
 		inspectPeerConnection(peerConnection)
 	}
 
-	if (originalSetRemoteDescription && originalGetReceivers && originalGetSenders) {
+	// Jitsi publishes participant-to-track identity in its Redux store. Its raw
+	// receiver track is replaced by a participant-specific playback track, so
+	// generic peer-connection capture would show both as duplicate lanes.
+	if (!isJitsiRuntime && originalSetRemoteDescription && originalGetReceivers && originalGetSenders) {
 		wrappedSetRemoteDescription = function (...args) {
 			watchPeerConnection(this)
 			const result = originalSetRemoteDescription.apply(this, args)
@@ -1003,7 +1049,7 @@
 				origin: 'capture',
 			})
 		} catch (error) {
-			window.alert(`Talk waveform microphone failed: ${error.message}`)
+			window.alert(`Talk waveforms microphone failed: ${error.message}`)
 		} finally {
 			micButton.disabled = false
 		}
@@ -1103,6 +1149,7 @@
 		void audioContext.close()
 		host.remove()
 		if (window[GLOBAL_KEY]?.destroy === destroy) delete window[GLOBAL_KEY]
+		if (window[PUBLIC_GLOBAL_KEY]?.destroy === destroy) delete window[PUBLIC_GLOBAL_KEY]
 	}
 
 	collapseButton.addEventListener('click', () => setCollapsed(true))
@@ -1119,8 +1166,9 @@
 	sampleSources()
 	sampleTimer = window.setInterval(sampleSources, AUDIO_SAMPLE_MS)
 
-	window[GLOBAL_KEY] = {
+	const publicApi = {
 		version: VERSION,
+		platform: isJitsiRuntime ? 'jitsi' : 'nextcloud-talk',
 		sources,
 		context: audioContext,
 		host,
@@ -1133,4 +1181,6 @@
 		reopen: () => setCollapsed(false),
 		destroy,
 	}
+	window[GLOBAL_KEY] = publicApi
+	window[PUBLIC_GLOBAL_KEY] = publicApi
 })()

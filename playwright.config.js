@@ -3,7 +3,7 @@ const fs = require('node:fs')
 
 const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
 const executablePath = fs.existsSync(systemChrome) ? systemChrome : undefined
-const showcaseCapture = Boolean(process.env.SHOWCASE_SCREENSHOT)
+const showcaseCapture = Boolean(process.env.SHOWCASE_SCREENSHOT || process.env.JITSI_SCREENSHOT)
 
 module.exports = defineConfig({
 	testDir: './tests',

@@ -1,62 +1,62 @@
 # Talk waveforms
 
-A bookmarklet overlay for inspecting Nextcloud Talk audio. It creates a separate analyser for every WebRTC sender and receiver track, then associates Talk's rendered media elements with those tracks and participant cards.
+A bookmarklet that lets you see the sound from your microphone and from every other participant in a Nextcloud Talk or Jitsi Meet call. It helps answer practical questions: can everyone hear the fan beside me, and whose microphone picked up that bark?
 
 ## Install
 
-Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Talk call and click the bookmark before joining for source-level WebRTC capture.
+Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Nextcloud Talk or Jitsi Meet call, then click the bookmark. Loading it before joining gives the most reliable participant separation.
 
-Every participant card gets its own visualization and mode button. There is no global floating toolbar. Each lane can be collapsed independently and provides four views:
+Every participant card gets an independent overlay. Its button cycles through four views:
 
 - live waveform
-- 15-second amplitude history
+- 15-second level history
 - live frequency spectrum
-- scrolling speech-band spectrogram, retained continuously while other views are selected or collapsed
+- persistent 15-second spectrogram
 
-Audio analysis is rate-limited: level samples run at 20 Hz, spectrogram history at 10 Hz, and only visible expanded overlays are painted. Spectrogram history uses a compact circular pixel buffer rather than repeatedly shifting a display-sized canvas.
+Each graph can be collapsed and reopened. Spectrogram history continues while another view is selected, but painting is limited to visible overlays. Analysis is rate-limited to keep the call page light: level samples run at 20 Hz and spectrogram samples at 10 Hz.
 
-The local lane is taken from Talk's actual `RTCRtpSender` track and remote lanes from `RTCRtpReceiver` tracks. This avoids a second microphone capture and permission prompt. A media-element scan remains as a late-injection and participant-card association fallback.
+## How it works
+
+On Nextcloud Talk, local and remote lanes come from the browser's WebRTC sender and receiver tracks. On Jitsi Meet, they come from Jitsi's participant-tagged media tracks. Both paths analyze the same streams the call uses, without opening the microphone a second time. A DOM media-element scan handles late loading and card association on Talk.
 
 ## Files
 
-- `nctalk-waveform.0.3.3.js` — versioned overlay payload
-- `bookmarklet-loader.js` — CSP-aware bookmarklet; loads the PGS asset with Nextcloud's nonce
-- `site/` — minimal installation homepage
-- `tests/smoke.spec.js` — CSP fixture/real Nextcloud plus WebRTC sender-receiver loopback test
-- `tests/harness.spec.js` — multi-browser Nextcloud Talk/Janus integration and showcase capture
-- `tests/homepage.spec.js` — deployed installer and clipboard test
-- `tests/participant-images/` — Git LFS-backed speaking/listening portraits for the generated homepage showcase
-- `.github/workflows/ci.yml` — fast fixture tests and past/current/future Talk compatibility matrix
+- `talk-waveforms.0.4.0.js` — versioned visualization payload
+- `bookmarklet-loader.js` — bookmarklet loader for Nextcloud Talk and Jitsi Meet
+- `site/` — installation homepage and generated harness screenshots
+- `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
+- `tests/harness.spec.js` — multi-browser Nextcloud Talk integration test
+- `tests/jitsi-harness.spec.js` — multi-browser Jitsi integration test and showcase capture
+- `tests/participant-images/` — Git LFS-backed generated camera feeds
+- `.github/workflows/ci.yml` — fixture, Jitsi, and past/current/future Talk compatibility tests
 
 ## Test
+
+Install the JavaScript dependencies and run the fast local fixture:
 
 ```sh
 npm install
 npm run test:fixture
 ```
 
-The fixture test serves a strict nonce-based CSP page and the installer locally, creates a WebRTC audio loopback, and verifies local sender deduplication, remote-track separation, participant-card placement, per-lane modes, collapse/reopen behavior, signal analysis, reload cleanup, and hook restoration.
+The fixture verifies loader behavior under a strict nonce-based CSP, local-track deduplication, remote-track separation, participant-card placement, all four modes, persistent history, collapse/reopen behavior, click isolation, cleanup, and hook restoration.
 
-To repeat that smoke test against the real Nextcloud page, run:
-
-```sh
-npm run test:local
-```
-
-After deployment, `npm test` repeats the same checks against the actual PGS-hosted asset.
-
-For the full multi-participant integration test, start the sibling Gocassini stack and create a room:
+For the full Nextcloud integration test, start the sibling Gocassini stack:
 
 ```sh
 ../gocassini/bin/cassini dev stack up --services full --recording-backend none
 npm run test:harness
 ```
 
-The test creates a fresh room, then runs one observer and three real Chrome Talk participants. It verifies three receiver overlays on remote cards and one deduplicated sender overlay on the local card. Each participant publishes the harness speech fixture; the assertion is made at the observer's WebRTC boundary. The recorder-oriented Go player is not used because it does not implement Talk's browser `requestoffer` subscription flow.
+The test joins one observer and three real browser participants. CI repeats it against a past, current, and future Nextcloud/Talk combination.
 
-To regenerate the homepage screenshot, run `npm run test:showcase`. It creates a five-browser “Radiation and Quanta” room inspired by the 1911 Solvay Conference, selects one speaking portrait and three listening portraits from a stable seed, hides the observer’s local card, and captures two Spectrogram views plus Wave and Level. Four synthesized speech voices take non-overlapping turns; after live WebRTC placement is verified, the harness renders their offline FFT and level histories into the corresponding participant overlays. The observer renders the 1280×800 composition at a 2× device scale so labels remain crisp when the published PNG is shown near its native size.
+The Jitsi test uses the official `jitsi/docker-jitsi-meet` release pinned in CI (`stable-11146-2`). Start that stack with `tests/jitsi.env`, then run:
 
-CI runs this harness against Nextcloud 33 (past), 34 (current), and Nextcloud 35 RC paired with Talk 25 RC (future). The future image is built by `tests/nextcloud-future.Dockerfile`; update its release archive, base image, and the pinned app releases in the workflow when the current major advances.
+```sh
+JITSI_URL=http://127.0.0.1:18000/TalkWaveformsHarness npm run test:jitsi
+```
+
+It joins one observer and two browser participants and verifies that each Jitsi audio track lands exactly once on its named participant tile. To regenerate the 2560×1600 homepage capture, use the same stack and run `npm run test:jitsi:showcase`. The showcase uses four generated video feeds and synthesized, non-overlapping speech turns; Mary Somerville's room also carries a steady fan tone.
 
 ## Deploy
 
@@ -64,4 +64,4 @@ CI runs this harness against Nextcloud 33 (past), 34 (current), and Nextcloud 35
 npm run deploy
 ```
 
-This adds or updates the four public assets in the authenticated `pgs.sh:/talk-waveforms/` project without deleting unrelated remote files.
+This updates the versioned payload, loader, homepage, and assets in the authenticated `pgs.sh:/talk-waveforms/` project without deleting unrelated remote files.
