@@ -54,8 +54,10 @@
 		.status { min-height: 3.6em; margin: 14px 0 0; color: var(--success); font-size: .72rem; line-height: 1.65; }
 		.instructions { padding: 16px 28px 20px; }
 		ol { margin: 0; padding-left: 24px; }
-		li { margin: 12px 0; padding-left: 6px; line-height: 1.65; }
-		li::marker { color: rgba(250, 250, 250, .38); font-size: .78em; }
+		.instructions li { margin: 12px 0; padding-left: 6px; line-height: 1.65; }
+		.instructions li::marker { color: rgba(250, 250, 250, .38); font-size: .78em; }
+		.inline-shortcut { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; white-space: nowrap; }
+		kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 19px; height: 19px; padding: 0 4px; color: rgba(250, 250, 250, .78); background: rgba(255, 255, 255, .08); border: 1px solid var(--base-300); font: inherit; font-size: .65rem; line-height: 1; }
 		.modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 18px 22px; border-top: 1px solid var(--base-300); list-style: none; }
 		.modes li { margin: 0; padding: 5px 8px; color: var(--content-muted); border: 1px solid var(--base-300); font-size: .65rem; letter-spacing: .08em; line-height: 1.2; text-transform: uppercase; }
 		.showcase { margin: 80px 0 0; }
@@ -67,6 +69,20 @@
 		.footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
 		.site-footer a { text-underline-offset: 3px; text-decoration-color: rgba(250, 250, 250, .3); transition: color .2s ease; }
 		.site-footer a:hover { color: var(--primary); }
+		.keyboard-help-toggle { position: fixed; z-index: 40; right: 16px; bottom: 16px; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; color: rgba(250, 250, 250, .6); background: rgba(10, 10, 10, .7); border: 1px solid rgba(250, 250, 250, .2); border-radius: 0; cursor: pointer; backdrop-filter: blur(8px); transition: color .2s ease, background .2s ease, border-color .2s ease; }
+		.keyboard-help-toggle:hover { color: #fafafa; background: var(--base-200); border-color: rgba(250, 250, 250, .4); }
+		.keyboard-help-toggle svg { width: 16px; height: 16px; }
+		.shortcut-dialog { width: min(460px, calc(100% - 32px)); max-height: min(720px, calc(100vh - 32px)); margin: auto; padding: 0; color: rgba(250, 250, 250, .82); background: var(--base-100); border: 1px solid var(--primary); box-shadow: 0 16px 48px rgba(0, 0, 0, .65); }
+		.shortcut-dialog::backdrop { background: rgba(0, 0, 0, .74); backdrop-filter: blur(4px); }
+		.shortcut-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px 7px 12px; border-bottom: 2px solid var(--primary); }
+		.shortcut-dialog-title { margin: 0; color: var(--primary); font-size: .75rem; font-weight: 400; letter-spacing: .12em; text-transform: uppercase; }
+		.shortcut-dialog-close { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; color: var(--primary); background: #111; border: 1px solid var(--primary); border-radius: 0; font: inherit; cursor: pointer; }
+		.shortcut-dialog-body { max-height: calc(100vh - 100px); padding: 18px; overflow-y: auto; }
+		.shortcut-group + .shortcut-group { margin-top: 22px; }
+		.shortcut-group h3 { margin: 0 0 10px; color: rgba(250, 250, 250, .4); font-size: .62rem; font-weight: 400; letter-spacing: .2em; text-transform: uppercase; }
+		.shortcut-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+		.shortcut-list li { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: center; gap: 12px; margin: 0; padding: 0; font-size: .72rem; line-height: 1.45; }
+		.shortcut-keys { display: inline-flex; align-items: center; gap: 3px; }
 		@media (max-width: 720px) {
 			.container { width: min(100% - 32px, 1536px); }
 			.site-header { padding: 14px 0; }
@@ -78,10 +94,12 @@
 			.install-grid { grid-template-columns: 1fr; }
 			.install-action { border-right: 0; border-bottom: 1px solid var(--base-300); }
 			.instructions { padding-inline: 20px; }
-			.site-footer { padding-inline: 16px; }
+			.site-footer { padding: 20px 48px 20px 16px; }
+			.keyboard-help-toggle { right: 12px; bottom: 12px; }
+			.shortcut-list li { grid-template-columns: 78px minmax(0, 1fr); }
 		}
 	</style>
-	<script src="/install.js?v=0.3.3" defer></script>
+	<script src="/install.0.3.3.js" defer></script>
 </head>
 <body>
 	<a class="github-ribbon" href="https://github.com/codemyriad/bookmarklet-waveforms" aria-label="Fork Talk waveforms on GitHub">Fork me on GitHub</a>
@@ -108,7 +126,7 @@
 					</div>
 					<div class="instructions">
 						<ol>
-							<li>Show your browser’s bookmarks bar.</li>
+							<li><span id="bookmarks-instruction">Show your browser’s bookmarks bar</span><span class="inline-shortcut" data-bookmarks-shortcut></span>.</li>
 							<li>Drag <strong>🌊 Talk</strong> onto the bar. You can also click it to copy, then create a bookmark and paste into its URL field.</li>
 							<li>Open a Nextcloud Talk call and click the bookmark before joining. Loading it later still works, but starting first gives the most reliable participant separation.</li>
 							<li>Each participant gets an overlay. Click its mode button to cycle views, or use &minus; to collapse that participant’s graph and <strong>Show audio</strong> to reopen it.</li>
@@ -140,5 +158,41 @@
 			</nav>
 		</div>
 	</footer>
+	<button id="keyboard-help-toggle" class="keyboard-help-toggle" type="button" aria-label="Show keyboard shortcuts" aria-haspopup="dialog" aria-controls="keyboard-help-dialog" aria-expanded="false" aria-keyshortcuts="?">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+			<rect x="2.5" y="5" width="19" height="14" rx="1"></rect>
+			<path d="M6 9h.01M10 9h.01M14 9h.01M18 9h.01M6 13h.01M10 13h.01M14 13h.01M18 13h.01M8 16h8"></path>
+		</svg>
+	</button>
+	<dialog id="keyboard-help-dialog" class="shortcut-dialog" aria-labelledby="keyboard-help-title">
+		<header class="shortcut-dialog-header">
+			<h2 id="keyboard-help-title" class="shortcut-dialog-title">keyboard_shortcuts.log</h2>
+			<button id="keyboard-help-close" class="shortcut-dialog-close" type="button" aria-label="Close keyboard shortcuts" aria-keyshortcuts="Escape">×</button>
+		</header>
+		<div class="shortcut-dialog-body">
+			<section class="shortcut-group" aria-labelledby="guide-shortcuts-title">
+				<h3 id="guide-shortcuts-title">This guide</h3>
+				<ul class="shortcut-list">
+					<li><span class="shortcut-keys"><kbd>?</kbd></span><span>Toggle this guide (unshifted / also works)</span></li>
+					<li><span class="shortcut-keys"><kbd>Esc</kbd></span><span>Close this guide</span></li>
+				</ul>
+			</section>
+			<section class="shortcut-group" aria-labelledby="navigation-shortcuts-title">
+				<h3 id="navigation-shortcuts-title">Navigation</h3>
+				<ul class="shortcut-list">
+					<li><span class="shortcut-keys"><kbd>I</kbd></span><span>Install instructions</span></li>
+					<li><span class="shortcut-keys"><kbd>D</kbd></span><span>Audio demo</span></li>
+					<li><span class="shortcut-keys"><kbd>G</kbd></span><span>GitHub repository</span></li>
+					<li><span class="shortcut-keys"><kbd>C</kbd></span><span>Code Myriad</span></li>
+				</ul>
+			</section>
+			<section class="shortcut-group" aria-labelledby="browser-shortcuts-title">
+				<h3 id="browser-shortcuts-title">Browser</h3>
+				<ul class="shortcut-list">
+					<li><span class="shortcut-keys" data-bookmarks-shortcut></span><span>Show or hide the bookmarks bar</span></li>
+				</ul>
+			</section>
+		</div>
+	</dialog>
 </body>
 </html>

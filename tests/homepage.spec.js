@@ -18,6 +18,22 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
 	await expect(page.getByRole('heading', { name: 'How it looks like' })).toBeVisible()
+	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['Ctrl', '⇧', 'B'])
+
+	const keyboardGuide = page.locator('#keyboard-help-dialog')
+	const keyboardGuideToggle = page.getByRole('button', { name: 'Show keyboard shortcuts' })
+	await expect(keyboardGuide).not.toBeVisible()
+	await page.keyboard.press('Shift+/')
+	await expect(keyboardGuide).toBeVisible()
+	await expect(keyboardGuideToggle).toHaveAttribute('aria-expanded', 'true')
+	await page.keyboard.press('Shift+/')
+	await expect(keyboardGuide).not.toBeVisible()
+	await page.keyboard.press('Shift+/')
+	await page.keyboard.press('Escape')
+	await expect(keyboardGuide).not.toBeVisible()
+	await page.keyboard.press('i')
+	await expect(page.locator('#install-title')).toBeFocused()
+
 	const showcase = page.locator('.showcase img')
 	await expect(showcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.0.3.3.png')
 	await expect(showcase).toHaveJSProperty('complete', true)
@@ -51,4 +67,15 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 		expect(payloadResponse.status()).toBe(200)
 		expect(await payloadResponse.text()).toContain("const VERSION = '0.3.3'")
 	}
+})
+
+test('shows the macOS bookmarks-bar shortcut on Apple desktops', async ({ page }) => {
+	await page.addInitScript(() => {
+		Object.defineProperty(navigator, 'platform', { configurable: true, get: () => 'MacIntel' })
+		Object.defineProperty(navigator, 'maxTouchPoints', { configurable: true, get: () => 0 })
+	})
+	const navigationUrl = new URL(homepageUrl)
+	navigationUrl.searchParams.set('_', Date.now())
+	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['⌘', '⇧', 'B'])
 })
