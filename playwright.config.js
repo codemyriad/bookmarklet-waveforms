@@ -3,6 +3,7 @@ const fs = require('node:fs')
 
 const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
 const executablePath = fs.existsSync(systemChrome) ? systemChrome : undefined
+const showcaseCapture = Boolean(process.env.SHOWCASE_SCREENSHOT)
 
 module.exports = defineConfig({
 	testDir: './tests',
@@ -11,7 +12,8 @@ module.exports = defineConfig({
 		browserName: 'chromium',
 		headless: true,
 		userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
-		viewport: { width: 1280, height: 800 },
+		viewport: showcaseCapture ? { width: 1920, height: 1200 } : { width: 1280, height: 800 },
+		deviceScaleFactor: showcaseCapture ? 2 : 1,
 		launchOptions: {
 			...(executablePath ? { executablePath } : {}),
 			args: [

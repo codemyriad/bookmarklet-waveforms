@@ -4,7 +4,7 @@ A bookmarklet overlay for inspecting Nextcloud Talk audio. It creates a separate
 
 ## Install
 
-Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **Talk waveforms** to the browser's bookmarks bar. Open a Talk call and click the bookmark before joining for source-level WebRTC capture.
+Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Talk call and click the bookmark before joining for source-level WebRTC capture.
 
 Every participant card gets its own visualization and mode button. There is no global floating toolbar. Each lane can be collapsed independently and provides four views:
 
@@ -19,12 +19,13 @@ The local lane is taken from Talk's actual `RTCRtpSender` track and remote lanes
 
 ## Files
 
-- `nctalk-waveform.0.3.2.js` — versioned overlay payload
+- `nctalk-waveform.0.3.3.js` — versioned overlay payload
 - `bookmarklet-loader.js` — CSP-aware bookmarklet; loads the PGS asset with Nextcloud's nonce
 - `site/` — minimal installation homepage
 - `tests/smoke.spec.js` — CSP fixture/real Nextcloud plus WebRTC sender-receiver loopback test
-- `tests/harness.spec.js` — four-browser Nextcloud Talk/Janus integration test
+- `tests/harness.spec.js` — multi-browser Nextcloud Talk/Janus integration and showcase capture
 - `tests/homepage.spec.js` — deployed installer and clipboard test
+- `tests/participant-images/` — Git LFS-backed speaking/listening portraits for the generated homepage showcase
 - `.github/workflows/ci.yml` — fast fixture tests and past/current/future Talk compatibility matrix
 
 ## Test
@@ -52,6 +53,8 @@ npm run test:harness
 ```
 
 The test creates a fresh room, then runs one observer and three real Chrome Talk participants. It verifies three receiver overlays on remote cards and one deduplicated sender overlay on the local card. Each participant publishes the harness speech fixture; the assertion is made at the observer's WebRTC boundary. The recorder-oriented Go player is not used because it does not implement Talk's browser `requestoffer` subscription flow.
+
+To regenerate the homepage screenshot, run `npm run test:showcase`. It creates a five-browser “Radiation and Quanta” room inspired by the 1911 Solvay Conference, selects one speaking portrait and three listening portraits from a stable seed, hides the observer’s local card, and captures two Spectrogram views plus Wave and Level. The observer renders at 1920×1200 with a 2× device scale so the published 1920×1200 PNG remains crisp at retina display sizes.
 
 CI runs this harness against Nextcloud 33 (past), 34 (current), and Nextcloud 35 RC paired with Talk 25 RC (future). The future image is built by `tests/nextcloud-future.Dockerfile`; update its release archive, base image, and the pinned app releases in the workflow when the current major advances.
 

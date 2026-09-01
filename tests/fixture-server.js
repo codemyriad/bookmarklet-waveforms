@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..')
 const routes = new Map([
 	['/', ['text/html; charset=utf-8', path.join(root, 'site', 'index.html')]],
 	['/install.js', ['text/javascript; charset=utf-8', path.join(root, 'site', 'install.js')]],
+	['/assets/talk-waveforms-showcase.png', ['image/png', path.join(root, 'site', 'assets', 'talk-waveforms-showcase.png')]],
 	['/bookmarklet-loader.js', ['text/javascript; charset=utf-8', path.join(root, 'bookmarklet-loader.js')]],
 ])
 

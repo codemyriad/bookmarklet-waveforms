@@ -5,6 +5,19 @@
 	const status = document.querySelector('#status')
 	let bookmarklet = ''
 
+	function copyPlainText(value) {
+		const textarea = document.createElement('textarea')
+		textarea.value = value
+		textarea.setAttribute('readonly', '')
+		textarea.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0'
+		document.body.append(textarea)
+		textarea.select()
+		textarea.setSelectionRange(0, value.length)
+		const copied = document.execCommand('copy')
+		textarea.remove()
+		return copied
+	}
+
 	fetch(`/bookmarklet-loader.js?_=${Date.now()}`, { cache: 'no-store' })
 		.then((response) => {
 			if (!response.ok) throw new Error(`${response.status} ${response.statusText}`)
@@ -13,7 +26,7 @@
 		.then((source) => {
 			bookmarklet = source.trim()
 			link.setAttribute('href', bookmarklet)
-			link.textContent = 'Talk waveforms'
+			link.textContent = '🌊 Talk'
 			link.classList.add('ready')
 			status.textContent = 'Drag the button to your bookmarks bar, or click it to copy.'
 		})
@@ -26,8 +39,8 @@
 		event.preventDefault()
 		if (!bookmarklet) return
 		try {
-			await navigator.clipboard.writeText(bookmarklet)
-			status.textContent = 'Copied. Paste it into a bookmark’s URL field.'
+			if (!copyPlainText(bookmarklet)) await navigator.clipboard.writeText(bookmarklet)
+			status.textContent = 'Copied the complete javascript: bookmarklet. Paste it into a bookmark’s URL field.'
 		} catch {
 			status.textContent = 'Drag the button to the bookmarks bar; clipboard access was denied.'
 		}

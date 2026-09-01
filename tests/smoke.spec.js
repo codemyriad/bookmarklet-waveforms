@@ -4,8 +4,8 @@ const path = require('node:path')
 
 const targetUrl = process.env.TALK_URL || 'https://cloud.codemyriad.io/call/erwcr27x'
 const loaderPath = path.join(__dirname, '..', 'bookmarklet-loader.js')
-const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.2.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.2.js'
+const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.3.js')
+const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.3.js'
 
 test('loads through the real Nextcloud CSP and analyses a Talk media stream', async ({ page }, testInfo) => {
 	const browserErrors = []
@@ -25,7 +25,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	await page.goto(targetUrl, { waitUntil: 'domcontentloaded' })
 	await expect(page.locator('#app-content-vue')).toBeAttached({ timeout: 20_000 })
 	await page.evaluate(() => {
-		localStorage.removeItem('nctalk-waveform-mode')
+		localStorage.setItem('nctalk-waveform-mode', 'spectrum')
 		localStorage.removeItem('nctalk-waveform-placement')
 		window.__WAVEFORM_NATIVE_SET_REMOTE__ = RTCPeerConnection.prototype.setRemoteDescription
 		window.__WAVEFORM_NATIVE_ADD_TRACK__ = RTCPeerConnection.prototype.addTrack
@@ -34,7 +34,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.2')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.3')
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 	expect(hostedResponse?.status()).toBe(200)
 

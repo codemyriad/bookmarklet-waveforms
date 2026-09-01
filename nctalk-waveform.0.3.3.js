@@ -1,11 +1,10 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.3.2'
+	const VERSION = '0.3.3'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const HOST_ID = 'nctalk-waveform'
 	const STORAGE_KEY = 'nctalk-waveform-placement'
-	const MODE_STORAGE_KEY = 'nctalk-waveform-mode'
 	const HISTORY_WINDOW_MS = 15_000
 	const AUDIO_SAMPLE_MS = 50
 	const HISTORY_SAMPLE_MS = AUDIO_SAMPLE_MS
@@ -35,11 +34,7 @@
 	let nextSourceNumber = 1
 	let nextTrackNumber = 1
 	const trackKeys = new WeakMap()
-	let defaultMode = 'spectrogram'
-	try {
-		const savedMode = localStorage.getItem(MODE_STORAGE_KEY)
-		if (MODES.includes(savedMode)) defaultMode = savedMode
-	} catch {}
+	const defaultMode = 'spectrogram'
 	let animationFrame = 0
 	let sampleTimer = 0
 	let scanTimer = 0

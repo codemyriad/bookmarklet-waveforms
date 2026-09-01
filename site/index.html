@@ -9,10 +9,10 @@
 		:root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #17202a; background: #f5f7f8; }
 		* { box-sizing: border-box; }
 		body { margin: 0; }
-		main { width: min(680px, calc(100% - 32px)); margin: 0 auto; padding: clamp(48px, 10vw, 96px) 0; }
+		main { width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: clamp(48px, 10vw, 96px) 0; }
 		h1 { margin: 0; font-size: clamp(2.4rem, 9vw, 4.8rem); line-height: .95; letter-spacing: -.055em; }
 		.lede { max-width: 560px; margin: 24px 0 36px; color: #55616d; font-size: 1.15rem; line-height: 1.6; }
-		.card { padding: clamp(22px, 5vw, 34px); background: #fff; border: 1px solid #dfe4e8; border-radius: 18px; box-shadow: 0 16px 50px rgba(21, 32, 43, .08); }
+		.card { max-width: 680px; padding: clamp(22px, 5vw, 34px); background: #fff; border: 1px solid #dfe4e8; border-radius: 18px; box-shadow: 0 16px 50px rgba(21, 32, 43, .08); }
 		.bookmarklet { display: inline-flex; align-items: center; min-height: 46px; padding: 0 20px; color: #fff; background: #17202a; border-radius: 10px; font-weight: 700; text-decoration: none; cursor: wait; opacity: .65; }
 		.bookmarklet.ready { cursor: grab; opacity: 1; }
 		.bookmarklet.ready:active { cursor: grabbing; }
@@ -21,6 +21,10 @@
 		.status { min-height: 1.5em; margin: 12px 0 0; color: #287a4d; font-size: .9rem; }
 		.modes { display: flex; flex-wrap: wrap; gap: 8px; margin: 34px 0 0; padding: 0; list-style: none; }
 		.modes li { margin: 0; padding: 5px 10px; color: #55616d; background: #e9edef; border-radius: 999px; font-size: .85rem; }
+		.showcase { margin: 48px 0 0; }
+		.showcase h2 { margin: 0 0 16px; font-size: 1.4rem; }
+		.showcase figure { margin: 0; }
+		.showcase img { display: block; width: 100%; height: auto; border: 1px solid #dfe4e8; border-radius: 16px; box-shadow: 0 16px 50px rgba(21, 32, 43, .12); }
 		footer { margin-top: 28px; color: #6d7780; font-size: .85rem; }
 		a { color: inherit; }
 		@media (prefers-color-scheme: dark) {
@@ -31,7 +35,7 @@
 			.modes li { color: #b6c0c8; background: #242d34; }
 		}
 	</style>
-	<script src="/install.js" defer></script>
+	<script src="/install.js?v=0.3.3" defer></script>
 </head>
 <body>
 	<main>
@@ -43,7 +47,7 @@
 			<p id="status" class="status" aria-live="polite"></p>
 			<ol>
 				<li>Show your browser’s bookmarks bar.</li>
-				<li>Drag <strong>Talk waveforms</strong> onto the bar. You can also click it to copy, then create a bookmark and paste into its URL field.</li>
+				<li>Drag <strong>🌊 Talk</strong> onto the bar. You can also click it to copy, then create a bookmark and paste into its URL field.</li>
 				<li>Open a Nextcloud Talk call and click the bookmark before joining. Loading it later still works, but starting first gives the most reliable participant separation.</li>
 				<li>Each participant gets an overlay. Click its mode button to cycle views, or use &minus; to collapse that participant’s graph and <strong>Show audio</strong> to reopen it.</li>
 			</ol>
@@ -54,7 +58,13 @@
 				<li>Persistent 15-second spectrogram</li>
 			</ul>
 		</section>
-		<footer>Version 0.3.2 · <a href="/nctalk-waveform.0.3.2.js">View the hosted source</a></footer>
+		<section class="showcase" aria-labelledby="showcase-title">
+			<h2 id="showcase-title">Radiation and Quanta</h2>
+			<figure>
+				<img src="/assets/talk-waveforms-showcase.png" width="1920" height="1200" loading="lazy" alt="A Nextcloud Talk call between four physicists discussing radiation and quanta, with two spectrograms, a waveform, and an amplitude history shown on separate participant cards">
+			</figure>
+		</section>
+		<footer>Version 0.3.3 · <a href="/nctalk-waveform.0.3.3.js">View the hosted source</a></footer>
 	</main>
 </body>
 </html>
