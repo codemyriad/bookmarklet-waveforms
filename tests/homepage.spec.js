@@ -10,8 +10,10 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
 
 	await expect(page).toHaveTitle('Talk waveforms')
+	await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/favicon.0.3.3.svg')
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
+	await expect(page.getByRole('heading', { name: 'How it looks like' })).toBeVisible()
 	const showcase = page.locator('.showcase img')
 	await expect(showcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.0.3.3.png')
 	await expect(showcase).toHaveJSProperty('complete', true)
