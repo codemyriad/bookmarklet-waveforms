@@ -19,6 +19,15 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.locator('#status')).toHaveText('Copied. Paste it into a bookmark’s URL field.')
 	expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(href)
 
+	const wrongPageMessage = new Promise((resolve) => {
+		page.once('dialog', async (dialog) => {
+			resolve(dialog.message())
+			await dialog.dismiss()
+		})
+	})
+	await page.evaluate(href.replace(/^javascript:/, ''))
+	expect(await wrongPageMessage).toBe('This is not Nextcloud Talk. Retry there!')
+
 	if (process.env.LOCAL_HOMEPAGE !== '1') {
 		const payloadResponse = await page.request.get(payloadUrl)
 		expect(payloadResponse.status()).toBe(200)
