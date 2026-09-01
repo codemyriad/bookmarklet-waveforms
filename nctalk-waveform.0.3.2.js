@@ -1,14 +1,17 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.3.1'
+	const VERSION = '0.3.2'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const HOST_ID = 'nctalk-waveform'
 	const STORAGE_KEY = 'nctalk-waveform-placement'
 	const MODE_STORAGE_KEY = 'nctalk-waveform-mode'
 	const HISTORY_WINDOW_MS = 15_000
-	const HISTORY_SAMPLE_MS = 50
-	const SPECTROGRAM_SAMPLE_MS = 50
+	const AUDIO_SAMPLE_MS = 50
+	const HISTORY_SAMPLE_MS = AUDIO_SAMPLE_MS
+	const SPECTROGRAM_SAMPLE_MS = 100
+	const SPECTROGRAM_HISTORY_WIDTH = Math.ceil(HISTORY_WINDOW_MS / SPECTROGRAM_SAMPLE_MS)
+	const SPECTROGRAM_HISTORY_HEIGHT = 128
 	const MODES = ['waveform', 'amplitude', 'spectrum', 'spectrogram']
 	const MODE_LABELS = {
 		waveform: 'Wave',
@@ -38,10 +41,40 @@
 		if (MODES.includes(savedMode)) defaultMode = savedMode
 	} catch {}
 	let animationFrame = 0
+	let sampleTimer = 0
 	let scanTimer = 0
 	let destroyed = false
 	let collapsed = false
 	const modifiedCards = new Map()
+	const sourcesByView = new WeakMap()
+
+	function hslToRgb(hue, saturation, lightness) {
+		const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+		const section = ((hue % 360) + 360) % 360 / 60
+		const secondary = chroma * (1 - Math.abs(section % 2 - 1))
+		let red = 0
+		let green = 0
+		let blue = 0
+		if (section < 1) [red, green] = [chroma, secondary]
+		else if (section < 2) [red, green] = [secondary, chroma]
+		else if (section < 3) [green, blue] = [chroma, secondary]
+		else if (section < 4) [green, blue] = [secondary, chroma]
+		else if (section < 5) [red, blue] = [secondary, chroma]
+		else [red, blue] = [chroma, secondary]
+		const match = lightness - chroma / 2
+		return [red, green, blue].map((component) => Math.round((component + match) * 255))
+	}
+
+	const spectrogramPalette = new Uint8ClampedArray(256 * 4)
+	for (let index = 0; index < 256; index++) {
+		const value = Math.max(0, (index - 18) / 237)
+		const [red, green, blue] = hslToRgb(230 - value * 210, .88, .07 + value * .6)
+		const offset = index * 4
+		spectrogramPalette[offset] = red
+		spectrogramPalette[offset + 1] = green
+		spectrogramPalette[offset + 2] = blue
+		spectrogramPalette[offset + 3] = 255
+	}
 
 	const host = document.createElement('div')
 	host.id = HOST_ID
@@ -164,6 +197,13 @@
 	const collapseButton = shadow.querySelector('.collapse')
 	const reopenButton = shadow.querySelector('.reopen')
 	const reopenCount = reopenButton.querySelector('.count')
+	const visibilityObserver = new IntersectionObserver((entries) => {
+		for (const entry of entries) {
+			const source = sourcesByView.get(entry.target)
+			if (source) source.renderVisible = entry.isIntersecting
+		}
+		requestRender()
+	})
 
 	try {
 		const placement = JSON.parse(localStorage.getItem(STORAGE_KEY))
@@ -226,11 +266,6 @@
 
 		const trackLabel = cleanText(stream?.getAudioTracks?.()[0]?.label)
 		return trackLabel && trackLabel.length < 80 ? trackLabel : ''
-	}
-
-	function sourceMeta(direction, origin) {
-		if (origin === 'webrtc') return direction === 'local' ? 'Local · WebRTC sender' : 'Remote · WebRTC receiver'
-		return `${direction === 'local' ? 'Local' : 'Remote'} · ${origin === 'capture' ? 'Direct mic test' : 'DOM fallback'}`
 	}
 
 	function participantCardFor(element) {
@@ -312,6 +347,7 @@
 		if (!source) return
 		try { source.node.disconnect() } catch {}
 		const card = source.card
+		visibilityObserver.unobserve(source.viewHost)
 		source.viewHost.remove()
 		sources.delete(key)
 		restoreCard(card)
@@ -340,13 +376,14 @@
 				:host([data-placement="card"]) {
 					position: absolute;
 					left: 8px;
-					right: 8px;
+					right: auto;
 					bottom: 8px;
+					width: min(640px, calc(100% - 16px));
 					z-index: 30;
 					pointer-events: auto;
 				}
 				:host([data-placement="card"][data-collapsed="true"]) {
-					left: auto;
+					left: 8px;
 					width: auto;
 					min-width: 0;
 					height: 30px;
@@ -376,7 +413,6 @@
 					pointer-events: none;
 				}
 				.label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 650; }
-				.meta { display: block; margin-top: 1px; color: #b2bdc8; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 				.mode {
 					position: absolute;
 					right: 36px;
@@ -427,7 +463,7 @@
 			</style>
 			<div class="view">
 				<canvas></canvas>
-				<div class="identity"><span class="label"></span><span class="meta"></span></div>
+				<div class="identity"><span class="label"></span></div>
 				<button class="mode" type="button"></button>
 				<button class="collapse" type="button" title="Collapse audio visualization" aria-label="Collapse audio visualization">&minus;</button>
 				<div class="level"></div>
@@ -436,7 +472,6 @@
 		source.viewHost = viewHost
 		source.viewShadow = viewShadow
 		source.labelElement = viewShadow.querySelector('.label')
-		source.metaElement = viewShadow.querySelector('.meta')
 		source.modeButton = viewShadow.querySelector('.mode')
 		source.collapseButton = viewShadow.querySelector('.collapse')
 		source.reopenButton = viewShadow.querySelector('.reopen')
@@ -446,6 +481,7 @@
 			await resumeAudio()
 			source.mode = MODES[(MODES.indexOf(source.mode) + 1) % MODES.length]
 			updateSourceView(source)
+			requestRender()
 		})
 		source.collapseButton.addEventListener('click', () => setSourceCollapsed(source, true))
 		source.reopenButton.addEventListener('click', async () => {
@@ -455,6 +491,8 @@
 		for (const eventName of ['pointerdown', 'pointerup', 'click', 'dblclick', 'contextmenu']) {
 			viewHost.addEventListener(eventName, (event) => event.stopPropagation())
 		}
+		sourcesByView.set(viewHost, source)
+		visibilityObserver.observe(viewHost)
 		updateSourceView(source)
 		return viewHost
 	}
@@ -462,7 +500,6 @@
 	function updateSourceView(source) {
 		source.labelElement.textContent = source.label
 		source.labelElement.title = source.label
-		source.metaElement.textContent = sourceMeta(source.direction, source.origin)
 		source.modeButton.textContent = MODE_LABELS[source.mode]
 		source.modeButton.title = `Change ${source.label} visualization (currently ${MODE_LABELS[source.mode]})`
 		source.modeButton.setAttribute('aria-label', source.modeButton.title)
@@ -474,6 +511,7 @@
 	function setSourceCollapsed(source, value) {
 		source.collapsed = Boolean(value)
 		source.viewHost.dataset.collapsed = String(source.collapsed)
+		requestRender()
 	}
 
 	function addStream(stream, options = {}) {
@@ -551,9 +589,30 @@
 			amplitudeHistory: [],
 			lastHistoryAt: 0,
 			spectrogramCanvas: document.createElement('canvas'),
+			spectrogramContext: null,
+			spectrogramColumn: null,
+			spectrogramBinMap: new Uint16Array(SPECTROGRAM_HISTORY_HEIGHT),
+			spectrogramWriteIndex: 0,
+			spectrogramFrameCount: 0,
 			lastSpectrogramAt: 0,
 			spectrogramFrames: 0,
 			lastLevel: 0,
+			renderVisible: true,
+			renderFrames: 0,
+			lastRenderedMode: null,
+			lastRenderedFrequencyFrame: -1,
+		}
+		source.spectrogramCanvas.width = SPECTROGRAM_HISTORY_WIDTH
+		source.spectrogramCanvas.height = SPECTROGRAM_HISTORY_HEIGHT
+		source.spectrogramContext = source.spectrogramCanvas.getContext('2d')
+		source.spectrogramContext.fillStyle = '#071018'
+		source.spectrogramContext.fillRect(0, 0, SPECTROGRAM_HISTORY_WIDTH, SPECTROGRAM_HISTORY_HEIGHT)
+		source.spectrogramColumn = source.spectrogramContext.createImageData(1, SPECTROGRAM_HISTORY_HEIGHT)
+		const nyquist = audioContext.sampleRate / 2
+		const maxBin = Math.min(source.frequencyData.length - 1, Math.floor(8_000 / nyquist * source.frequencyData.length))
+		for (let y = 0; y < SPECTROGRAM_HISTORY_HEIGHT; y++) {
+			const normalizedFrequency = 1 - y / Math.max(1, SPECTROGRAM_HISTORY_HEIGHT - 1)
+			source.spectrogramBinMap[y] = Math.floor(normalizedFrequency * normalizedFrequency * maxBin)
 		}
 		createSourceView(source)
 		source.lane = source.viewHost
@@ -678,7 +737,6 @@
 	}
 
 	function drawSpectrum(context, source, width, height) {
-		source.analyser.getByteFrequencyData(source.frequencyData)
 		const bars = Math.min(56, source.frequencyData.length)
 		const step = Math.max(1, Math.floor(source.frequencyData.length * 0.58 / bars))
 		const gap = 1
@@ -691,52 +749,80 @@
 		}
 	}
 
-	function drawSpectrogram(context, source, width, height, now) {
+	function sampleSpectrogram(source, now) {
+		if (now - source.lastSpectrogramAt < SPECTROGRAM_SAMPLE_MS) return
+		source.analyser.getByteFrequencyData(source.frequencyData)
+		const pixels = source.spectrogramColumn.data
+		for (let y = 0; y < SPECTROGRAM_HISTORY_HEIGHT; y++) {
+			const paletteOffset = source.frequencyData[source.spectrogramBinMap[y]] * 4
+			const pixelOffset = y * 4
+			pixels[pixelOffset] = spectrogramPalette[paletteOffset]
+			pixels[pixelOffset + 1] = spectrogramPalette[paletteOffset + 1]
+			pixels[pixelOffset + 2] = spectrogramPalette[paletteOffset + 2]
+			pixels[pixelOffset + 3] = 255
+		}
+		source.spectrogramContext.putImageData(source.spectrogramColumn, source.spectrogramWriteIndex, 0)
+		source.spectrogramWriteIndex = (source.spectrogramWriteIndex + 1) % SPECTROGRAM_HISTORY_WIDTH
+		source.spectrogramFrameCount = Math.min(SPECTROGRAM_HISTORY_WIDTH, source.spectrogramFrameCount + 1)
+		source.lastSpectrogramAt = now
+		source.spectrogramFrames++
+	}
+
+	function drawSpectrogram(context, source, width, height) {
 		const buffer = source.spectrogramCanvas
-		if (buffer.width !== width || buffer.height !== height) {
-			buffer.width = width
-			buffer.height = height
-			source.lastSpectrogramAt = 0
+		const frames = source.spectrogramFrameCount
+		if (!frames) return
+		if (frames < SPECTROGRAM_HISTORY_WIDTH) {
+			const destinationX = width * (SPECTROGRAM_HISTORY_WIDTH - frames) / SPECTROGRAM_HISTORY_WIDTH
+			context.drawImage(buffer, 0, 0, frames, buffer.height, destinationX, 0, width - destinationX, height)
+			return
 		}
-		const bufferContext = buffer.getContext('2d')
-		if (now - source.lastSpectrogramAt >= SPECTROGRAM_SAMPLE_MS) {
-			source.analyser.getByteFrequencyData(source.frequencyData)
-			const shift = Math.max(1, Math.round((window.devicePixelRatio || 1)))
-			bufferContext.drawImage(buffer, shift, 0, width - shift, height, 0, 0, width - shift, height)
-			bufferContext.fillStyle = '#071018'
-			bufferContext.fillRect(width - shift, 0, shift, height)
-			const nyquist = audioContext.sampleRate / 2
-			const maxBin = Math.min(source.frequencyData.length - 1, Math.floor(8_000 / nyquist * source.frequencyData.length))
-			for (let y = 0; y < height; y++) {
-				const normalizedFrequency = 1 - y / Math.max(1, height - 1)
-				const bin = Math.floor(normalizedFrequency * normalizedFrequency * maxBin)
-				const value = Math.max(0, (source.frequencyData[bin] - 18) / 237)
-				const hue = 230 - value * 210
-				bufferContext.fillStyle = `hsl(${hue} 88% ${7 + value * 60}%)`
-				bufferContext.fillRect(width - shift, y, shift, 1)
-			}
-			source.lastSpectrogramAt = now
-			source.spectrogramFrames++
+		const oldest = source.spectrogramWriteIndex
+		const firstWidth = SPECTROGRAM_HISTORY_WIDTH - oldest
+		const split = firstWidth / SPECTROGRAM_HISTORY_WIDTH * width
+		context.drawImage(buffer, oldest, 0, firstWidth, buffer.height, 0, 0, split, height)
+		if (oldest) context.drawImage(buffer, 0, 0, oldest, buffer.height, split, 0, width - split, height)
+	}
+
+	function sampleSources(now = performance.now()) {
+		if (destroyed) return
+		for (const source of sources.values()) {
+			source.analyser.getFloatTimeDomainData(source.timeData)
+			const currentLevel = sampleAmplitude(source, now)
+			source.lastLevel = Math.max(currentLevel, source.lastLevel * .72)
+			sampleSpectrogram(source, now)
 		}
-		context.drawImage(buffer, 0, 0, width, height)
+		requestRender()
+	}
+
+	function requestRender() {
+		if (destroyed || document.hidden || animationFrame) return
+		animationFrame = window.requestAnimationFrame(render)
 	}
 
 	function render(now = performance.now()) {
-		if (destroyed) return
+		animationFrame = 0
+		if (destroyed || document.hidden) return
 		for (const source of sources.values()) {
+			if (source.collapsed || source.viewHost.hidden || !source.renderVisible || !source.viewHost.isConnected) continue
+			if (!source.canvas.clientWidth || !source.canvas.clientHeight) continue
+			source.level.style.transform = `scaleX(${Math.min(1, source.lastLevel * 3.3)})`
+			const frequencyView = source.mode === 'spectrum' || source.mode === 'spectrogram'
+			if (frequencyView
+				&& source.lastRenderedMode === source.mode
+				&& source.lastRenderedFrequencyFrame === source.spectrogramFrames) continue
 			const context = source.canvas.getContext('2d')
 			const { width, height } = sizeCanvas(source.canvas)
-			context.clearRect(0, 0, width, height)
-			source.analyser.getFloatTimeDomainData(source.timeData)
-			const currentLevel = sampleAmplitude(source, now)
+			context.fillStyle = '#071018'
+			context.fillRect(0, 0, width, height)
 			if (source.mode === 'waveform') drawWaveform(context, source, width, height)
 			else if (source.mode === 'amplitude') drawAmplitudeHistory(context, source, width, height, now)
 			else if (source.mode === 'spectrum') drawSpectrum(context, source, width, height)
-			else drawSpectrogram(context, source, width, height, now)
-			source.lastLevel = Math.max(currentLevel, source.lastLevel * .82)
-			source.level.style.transform = `scaleX(${Math.min(1, source.lastLevel * 3.3)})`
+			else drawSpectrogram(context, source, width, height)
+			source.lastRenderedMode = source.mode
+			source.lastRenderedFrequencyFrame = source.spectrogramFrames
+			source.renderFrames++
 		}
-		animationFrame = window.requestAnimationFrame(render)
 	}
 
 	async function resumeAudio() {
@@ -970,14 +1056,22 @@
 		reopenButton.hidden = !collapsed
 		for (const source of sources.values()) source.viewHost.hidden = collapsed
 		savePlacement()
+		requestRender()
+	}
+
+	function onVisibilityChange() {
+		if (!document.hidden) requestRender()
 	}
 
 	function destroy() {
 		if (destroyed) return
 		destroyed = true
 		window.cancelAnimationFrame(animationFrame)
+		window.clearInterval(sampleTimer)
 		window.clearInterval(scanTimer)
+		document.removeEventListener('visibilitychange', onVisibilityChange)
 		resizeObserver.disconnect()
+		visibilityObserver.disconnect()
 		for (const stream of ownedStreams) stream.getTracks().forEach((track) => track.stop())
 		for (const source of sources.values()) {
 			try { source.node.disconnect() } catch {}
@@ -1024,9 +1118,11 @@
 	host.addEventListener('pointerdown', resumeAudio, { once: true })
 	document.documentElement.append(host)
 	resizeObserver.observe(host)
+	document.addEventListener('visibilitychange', onVisibilityChange)
 	scan()
 	scanTimer = window.setInterval(scan, 750)
-	animationFrame = window.requestAnimationFrame(render)
+	sampleSources()
+	sampleTimer = window.setInterval(sampleSources, AUDIO_SAMPLE_MS)
 
 	window[GLOBAL_KEY] = {
 		version: VERSION,

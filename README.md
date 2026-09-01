@@ -11,13 +11,15 @@ Every participant card gets its own visualization and mode button. There is no g
 - live waveform
 - 15-second amplitude history
 - live frequency spectrum
-- scrolling speech-band spectrogram
+- scrolling speech-band spectrogram, retained continuously while other views are selected or collapsed
+
+Audio analysis is rate-limited: level samples run at 20 Hz, spectrogram history at 10 Hz, and only visible expanded overlays are painted. Spectrogram history uses a compact circular pixel buffer rather than repeatedly shifting a display-sized canvas.
 
 The local lane is taken from Talk's actual `RTCRtpSender` track and remote lanes from `RTCRtpReceiver` tracks. This avoids a second microphone capture and permission prompt. A media-element scan remains as a late-injection and participant-card association fallback.
 
 ## Files
 
-- `nctalk-waveform.0.3.1.js` — versioned overlay payload
+- `nctalk-waveform.0.3.2.js` — versioned overlay payload
 - `bookmarklet-loader.js` — CSP-aware bookmarklet; loads the PGS asset with Nextcloud's nonce
 - `site/` — minimal installation homepage
 - `tests/smoke.spec.js` — CSP fixture/real Nextcloud plus WebRTC sender-receiver loopback test

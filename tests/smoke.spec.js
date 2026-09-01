@@ -4,8 +4,8 @@ const path = require('node:path')
 
 const targetUrl = process.env.TALK_URL || 'https://cloud.codemyriad.io/call/erwcr27x'
 const loaderPath = path.join(__dirname, '..', 'bookmarklet-loader.js')
-const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.1.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.1.js'
+const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.2.js')
+const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.2.js'
 
 test('loads through the real Nextcloud CSP and analyses a Talk media stream', async ({ page }, testInfo) => {
 	const browserErrors = []
@@ -34,7 +34,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.1')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.2')
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 	expect(hostedResponse?.status()).toBe(200)
 
@@ -153,6 +153,10 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		[...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((source) => source.label === 'Synthetic remote participant')?.spectrogramFrames || 0
 	))).toBeGreaterThan(2)
+	const spectrogramFramesBeforeModeChange = await page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant').spectrogramFrames
+	))
 	await page.evaluate(() => {
 		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((candidate) => candidate.label === 'Synthetic remote participant')
@@ -162,6 +166,10 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		[...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((source) => source.label === 'Synthetic remote participant')?.mode
 	))).toBe('waveform')
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.spectrogramFrames || 0
+	))).toBeGreaterThan(spectrogramFramesBeforeModeChange + 2)
 	await page.evaluate(() => {
 		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((candidate) => candidate.label === 'Synthetic remote participant')
@@ -175,6 +183,16 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		[...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((source) => source.label === 'Synthetic remote participant')?.mode
 	))).toBe('amplitude')
+	expect(await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		return {
+			width: source.spectrogramCanvas.width,
+			height: source.spectrogramCanvas.height,
+			frames: source.spectrogramFrameCount,
+			hasTechnicalMeta: Boolean(source.viewShadow.querySelector('.meta')),
+		}
+	})).toEqual({ width: 150, height: 128, frames: expect.any(Number), hasTechnicalMeta: false })
 
 	const overlay = page.locator('#nctalk-waveform')
 	const participantOverlay = page.locator('.video-container > .nctalk-waveform-source')
@@ -184,9 +202,14 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	expect(bounds).toMatchObject({ width: 404, height: 72 })
 	await participantOverlay.screenshot({ path: testInfo.outputPath('talk-waveform-participant-overlay.png') })
 
-	await participantOverlay.click({ position: { x: 200, y: 50 } })
+	await participantOverlay.dispatchEvent('click')
 	expect(await page.evaluate(() => window.__WAVEFORM_CARD_CLICKS__)).toBe(0)
 
+	const beforeCollapsedSampling = await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		return { spectrogramFrames: source.spectrogramFrames, renderFrames: source.renderFrames }
+	})
 	await page.evaluate(() => {
 		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((candidate) => candidate.label === 'Synthetic remote participant')
@@ -194,6 +217,14 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	})
 	await expect(participantOverlay).toHaveAttribute('data-collapsed', 'true')
 	expect(await participantOverlay.boundingBox()).toMatchObject({ height: 30 })
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.spectrogramFrames || 0
+	))).toBeGreaterThan(beforeCollapsedSampling.spectrogramFrames + 2)
+	expect(await page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant').renderFrames
+	))).toBeLessThanOrEqual(beforeCollapsedSampling.renderFrames + 1)
 	await page.evaluate(() => {
 		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
 			.find((candidate) => candidate.label === 'Synthetic remote participant')
@@ -201,6 +232,64 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	})
 	await expect(participantOverlay).toHaveAttribute('data-collapsed', 'false')
 	await expect(participantOverlay).toBeVisible()
+	await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		source.modeButton.click()
+		source.modeButton.click()
+	})
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.mode
+	))).toBe('spectrogram')
+	const rateStart = await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		return { spectrogramFrames: source.spectrogramFrames, renderFrames: source.renderFrames }
+	})
+	await page.waitForTimeout(650)
+	const rateEnd = await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		return { spectrogramFrames: source.spectrogramFrames, renderFrames: source.renderFrames }
+	})
+	expect(rateEnd.spectrogramFrames - rateStart.spectrogramFrames).toBeGreaterThanOrEqual(3)
+	expect(rateEnd.spectrogramFrames - rateStart.spectrogramFrames).toBeLessThanOrEqual(9)
+	expect(rateEnd.renderFrames - rateStart.renderFrames).toBeLessThanOrEqual(16)
+
+	const localOverlay = page.locator('.localVideoContainer > .nctalk-waveform-source')
+	await expect(localOverlay).toBeVisible()
+	await page.evaluate(() => {
+		const remoteCard = document.querySelector('.video-container')
+		const { localCard } = window.__WAVEFORM_TEST_AUDIO__
+		remoteCard.style.cssText = 'position:relative;width:1200px;height:600px'
+		localCard.style.cssText = 'position:absolute;width:320px;height:180px;right:8px;bottom:8px;z-index:2'
+		remoteCard.append(localCard)
+	})
+	const overlaysIntersect = async () => {
+		const [remoteBounds, localBounds] = await Promise.all([
+			participantOverlay.boundingBox(),
+			localOverlay.boundingBox(),
+		])
+		return remoteBounds.x < localBounds.x + localBounds.width
+			&& remoteBounds.x + remoteBounds.width > localBounds.x
+			&& remoteBounds.y < localBounds.y + localBounds.height
+			&& remoteBounds.y + remoteBounds.height > localBounds.y
+	}
+	expect(await overlaysIntersect()).toBe(false)
+	await page.evaluate(() => {
+		for (const source of window.__NCTALK_WAVEFORM__.sources.values()) {
+			if (source.card?.matches('.video-container, .localVideoContainer')) source.collapseButton.click()
+		}
+	})
+	await expect(participantOverlay).toHaveAttribute('data-collapsed', 'true')
+	await expect(localOverlay).toHaveAttribute('data-collapsed', 'true')
+	expect(await overlaysIntersect()).toBe(false)
+	await page.evaluate(() => {
+		for (const source of window.__NCTALK_WAVEFORM__.sources.values()) {
+			if (source.collapsed) source.reopenButton.click()
+		}
+	})
 
 	const previousContextState = await page.evaluate(() => {
 		window.__WAVEFORM_OLD_CONTEXT__ = window.__NCTALK_WAVEFORM__.context
