@@ -25,6 +25,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	await page.goto(targetUrl, { waitUntil: 'domcontentloaded' })
 	await expect(page.locator('#app-content-vue')).toBeAttached({ timeout: 20_000 })
 	await page.evaluate(() => {
+		localStorage.removeItem('nctalk-waveform-mode')
 		window.__WAVEFORM_NATIVE_SET_REMOTE__ = RTCPeerConnection.prototype.setRemoteDescription
 	})
 
@@ -32,6 +33,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.2.0')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 	expect(hostedResponse?.status()).toBe(200)
 
 	await page.evaluate(async () => {
@@ -75,10 +77,17 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		window.__NCTALK_WAVEFORM__.scan()
 	})
 
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__.sources.size)).toBe(1)
-	await expect.poll(() => page.evaluate(() => [...window.__NCTALK_WAVEFORM__.sources.values()][0].lastLevel)).toBeGreaterThan(0.1)
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.filter((source) => source.label === 'Synthetic remote participant').length
+	))).toBe(1)
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.lastLevel || 0
+	))).toBeGreaterThan(0.1)
 	expect(await page.evaluate(() => {
-		const source = [...window.__NCTALK_WAVEFORM__.sources.values()][0]
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
 		return { direction: source.direction, origin: source.origin, label: source.label }
 	})).toEqual({ direction: 'remote', origin: 'webrtc', label: 'Synthetic remote participant' })
 
@@ -87,7 +96,10 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		select.value = 'amplitude'
 		select.dispatchEvent(new Event('change'))
 	})
-	await expect.poll(() => page.evaluate(() => [...window.__NCTALK_WAVEFORM__.sources.values()][0].amplitudeHistory.length)).toBeGreaterThan(3)
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.amplitudeHistory.length || 0
+	))).toBeGreaterThan(3)
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__.mode)).toBe('amplitude')
 
 	await page.locator('#nctalk-waveform').evaluate((host) => {
@@ -95,7 +107,10 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		select.value = 'spectrogram'
 		select.dispatchEvent(new Event('change'))
 	})
-	await expect.poll(() => page.evaluate(() => [...window.__NCTALK_WAVEFORM__.sources.values()][0].spectrogramFrames)).toBeGreaterThan(2)
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((source) => source.label === 'Synthetic remote participant')?.spectrogramFrames || 0
+	))).toBeGreaterThan(2)
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__.mode)).toBe('spectrogram')
 
 	const overlay = page.locator('#nctalk-waveform')

@@ -25,7 +25,7 @@
 	let nextSourceNumber = 1
 	let nextTrackNumber = 1
 	const trackKeys = new WeakMap()
-	let mode = 'waveform'
+	let mode = 'spectrogram'
 	try {
 		const savedMode = localStorage.getItem(MODE_STORAGE_KEY)
 		if (['waveform', 'amplitude', 'spectrum', 'spectrogram'].includes(savedMode)) mode = savedMode
