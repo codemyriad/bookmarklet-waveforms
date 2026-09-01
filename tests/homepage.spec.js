@@ -10,6 +10,7 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
 
 	await expect(page).toHaveTitle('Talk waveforms')
+	await expect(page.locator('.lede')).toHaveText('See, not just hear, everyone in a Nextcloud Talk call—including yourself. Check whether others can hear the noise around you, and tell whose microphone that dog bark came from.')
 	await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/favicon.0.3.3.svg')
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
