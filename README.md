@@ -6,18 +6,18 @@ A bookmarklet overlay for inspecting Nextcloud Talk audio. It creates a separate
 
 Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **Talk waveforms** to the browser's bookmarks bar. Open a Talk call and click the bookmark before joining for source-level WebRTC capture.
 
-Every participant card gets its own visualization and mode button. The toolbar can be collapsed without destroying the analysers; a persistent pill reopens it. Each lane provides four views:
+Every participant card gets its own visualization and mode button. There is no global floating toolbar. Each lane can be collapsed independently and provides four views:
 
 - live waveform
 - 15-second amplitude history
 - live frequency spectrum
 - scrolling speech-band spectrogram
 
-The local lane is taken from Talk's actual `RTCRtpSender` track and remote lanes from `RTCRtpReceiver` tracks. This avoids a second microphone capture and permission prompt. **Mic test** is an explicit fallback only when no outgoing Talk track exists. A media-element scan remains as a late-injection and participant-card association fallback.
+The local lane is taken from Talk's actual `RTCRtpSender` track and remote lanes from `RTCRtpReceiver` tracks. This avoids a second microphone capture and permission prompt. A media-element scan remains as a late-injection and participant-card association fallback.
 
 ## Files
 
-- `nctalk-waveform.0.3.0.js` — versioned overlay payload
+- `nctalk-waveform.0.3.1.js` — versioned overlay payload
 - `bookmarklet-loader.js` — CSP-aware bookmarklet; loads the PGS asset with Nextcloud's nonce
 - `site/` — minimal installation homepage
 - `tests/smoke.spec.js` — CSP fixture/real Nextcloud plus WebRTC sender-receiver loopback test

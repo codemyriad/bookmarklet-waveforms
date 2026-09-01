@@ -9,8 +9,8 @@ const projectRoot = path.join(__dirname, '..')
 const gocassiniRoot = path.resolve(projectRoot, '..', 'gocassini')
 const speechFixture = path.join(gocassiniRoot, 'harness', 'media', 'parakeet-smoke.mkv')
 const loaderPath = path.join(projectRoot, 'bookmarklet-loader.js')
-const scriptPath = path.join(projectRoot, 'nctalk-waveform.0.3.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.0.js'
+const scriptPath = path.join(projectRoot, 'nctalk-waveform.0.3.1.js')
+const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.1.js'
 const normalChromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
 const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
 const participantExecutablePath = fs.existsSync(systemChrome) ? systemChrome : undefined
@@ -194,14 +194,16 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 				hasSenderTrack: Boolean(source.senderTrack),
 				placement: source.viewHost.dataset.placement,
 				mode: source.mode,
-				micEnabled: !window.__NCTALK_WAVEFORM__.host.shadowRoot.querySelector('.mic').disabled,
+				collapsed: source.collapsed,
+				globalControlVisible: getComputedStyle(window.__NCTALK_WAVEFORM__.host).display !== 'none',
 			}
 		})).toEqual({
 			origin: 'webrtc',
 			hasSenderTrack: true,
 			placement: 'card',
 			mode: 'spectrogram',
-			micEnabled: false,
+			collapsed: false,
+			globalControlVisible: false,
 		})
 		await expect(page.locator('.video-container > .nctalk-waveform-source')).toHaveCount(3)
 		await expect(page.locator('.localVideoContainer > .nctalk-waveform-source')).toHaveCount(1)

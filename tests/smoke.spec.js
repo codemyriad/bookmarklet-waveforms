@@ -4,8 +4,8 @@ const path = require('node:path')
 
 const targetUrl = process.env.TALK_URL || 'https://cloud.codemyriad.io/call/erwcr27x'
 const loaderPath = path.join(__dirname, '..', 'bookmarklet-loader.js')
-const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.0.js'
+const scriptPath = path.join(__dirname, '..', 'nctalk-waveform.0.3.1.js')
+const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/nctalk-waveform.0.3.1.js'
 
 test('loads through the real Nextcloud CSP and analyses a Talk media stream', async ({ page }, testInfo) => {
 	const browserErrors = []
@@ -34,7 +34,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.0')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.3.1')
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 	expect(hostedResponse?.status()).toBe(200)
 
@@ -75,6 +75,8 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 				const participantName = document.createElement('span')
 				participantName.className = 'video-container__user-name'
 				participantName.textContent = 'Synthetic remote participant'
+				window.__WAVEFORM_CARD_CLICKS__ = 0
+				participantCard.addEventListener('click', () => window.__WAVEFORM_CARD_CLICKS__++)
 				const audio = document.createElement('audio')
 				audio.setAttribute('aria-label', 'Synthetic remote participant')
 				audio.autoplay = true
@@ -176,17 +178,28 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 
 	const overlay = page.locator('#nctalk-waveform')
 	const participantOverlay = page.locator('.video-container > .nctalk-waveform-source')
+	await expect(overlay).toBeHidden()
 	await expect(participantOverlay).toBeVisible()
 	const bounds = await participantOverlay.boundingBox()
 	expect(bounds).toMatchObject({ width: 404, height: 72 })
 	await participantOverlay.screenshot({ path: testInfo.outputPath('talk-waveform-participant-overlay.png') })
 
-	await overlay.evaluate((host) => host.shadowRoot.querySelector('.collapse').click())
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__.collapsed)).toBe(true)
-	await expect(participantOverlay).toBeHidden()
-	await expect.poll(() => overlay.evaluate((host) => !host.shadowRoot.querySelector('.reopen').hidden)).toBe(true)
-	await overlay.evaluate((host) => host.shadowRoot.querySelector('.reopen').click())
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__.collapsed)).toBe(false)
+	await participantOverlay.click({ position: { x: 200, y: 50 } })
+	expect(await page.evaluate(() => window.__WAVEFORM_CARD_CLICKS__)).toBe(0)
+
+	await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		source.collapseButton.click()
+	})
+	await expect(participantOverlay).toHaveAttribute('data-collapsed', 'true')
+	expect(await participantOverlay.boundingBox()).toMatchObject({ height: 30 })
+	await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		source.reopenButton.click()
+	})
+	await expect(participantOverlay).toHaveAttribute('data-collapsed', 'false')
 	await expect(participantOverlay).toBeVisible()
 
 	const previousContextState = await page.evaluate(() => {

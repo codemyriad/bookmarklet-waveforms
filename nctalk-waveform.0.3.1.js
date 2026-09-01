@@ -1,7 +1,7 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.3.0'
+	const VERSION = '0.3.1'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const HOST_ID = 'nctalk-waveform'
 	const STORAGE_KEY = 'nctalk-waveform-placement'
@@ -45,8 +45,9 @@
 
 	const host = document.createElement('div')
 	host.id = HOST_ID
-	host.setAttribute('role', 'region')
-	host.setAttribute('aria-label', 'Talk audio waveforms')
+	host.hidden = true
+	host.style.display = 'none'
+	host.setAttribute('aria-hidden', 'true')
 	const shadow = host.attachShadow({ mode: 'open' })
 	shadow.innerHTML = `
 		<style>
@@ -321,6 +322,7 @@
 		const viewHost = document.createElement('div')
 		viewHost.className = 'nctalk-waveform-source'
 		viewHost.dataset.placement = 'fallback'
+		viewHost.dataset.collapsed = 'false'
 		viewHost.setAttribute('role', 'group')
 		const viewShadow = viewHost.attachShadow({ mode: 'open' })
 		viewShadow.innerHTML = `
@@ -341,7 +343,13 @@
 					right: 8px;
 					bottom: 8px;
 					z-index: 30;
-					pointer-events: none;
+					pointer-events: auto;
+				}
+				:host([data-placement="card"][data-collapsed="true"]) {
+					left: auto;
+					width: auto;
+					min-width: 0;
+					height: 30px;
 				}
 				* { box-sizing: border-box; }
 				.view {
@@ -361,7 +369,7 @@
 					left: 7px;
 					top: 6px;
 					z-index: 2;
-					max-width: calc(100% - 100px);
+					max-width: calc(100% - 138px);
 					padding: 2px 5px;
 					border-radius: 4px;
 					background: rgba(0, 0, 0, .52);
@@ -371,7 +379,7 @@
 				.meta { display: block; margin-top: 1px; color: #b2bdc8; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 				.mode {
 					position: absolute;
-					right: 6px;
+					right: 36px;
 					top: 6px;
 					z-index: 3;
 					min-height: 25px;
@@ -385,19 +393,53 @@
 					pointer-events: auto;
 				}
 				.mode:hover, .mode:focus-visible { background: rgba(31, 41, 52, .92); outline: none; }
+				.collapse {
+					position: absolute;
+					right: 6px;
+					top: 6px;
+					z-index: 3;
+					width: 25px;
+					height: 25px;
+					padding: 0;
+					color: #f5f7fa;
+					background: rgba(0, 0, 0, .62);
+					border: 1px solid rgba(255, 255, 255, .26);
+					border-radius: 6px;
+					font: 16px/1 system-ui, sans-serif;
+					cursor: pointer;
+				}
+				.reopen {
+					display: none;
+					height: 30px;
+					padding: 0 10px;
+					color: #f5f7fa;
+					background: rgba(7, 16, 24, .9);
+					border: 1px solid rgba(255, 255, 255, .22);
+					border-radius: 999px;
+					box-shadow: 0 4px 18px rgba(0, 0, 0, .3);
+					font: 11px/1 system-ui, sans-serif;
+					cursor: pointer;
+				}
+				.collapse:hover, .collapse:focus-visible, .reopen:hover, .reopen:focus-visible { background: rgba(31, 41, 52, .96); outline: none; }
+				:host([data-collapsed="true"]) .view { display: none; }
+				:host([data-collapsed="true"]) .reopen { display: block; }
 				.level { position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg, #4ade80, #facc15, #fb7185); transform: scaleX(0); transform-origin: left; }
 			</style>
 			<div class="view">
 				<canvas></canvas>
 				<div class="identity"><span class="label"></span><span class="meta"></span></div>
 				<button class="mode" type="button"></button>
+				<button class="collapse" type="button" title="Collapse audio visualization" aria-label="Collapse audio visualization">&minus;</button>
 				<div class="level"></div>
-			</div>`
+			</div>
+			<button class="reopen" type="button">Show audio</button>`
 		source.viewHost = viewHost
 		source.viewShadow = viewShadow
 		source.labelElement = viewShadow.querySelector('.label')
 		source.metaElement = viewShadow.querySelector('.meta')
 		source.modeButton = viewShadow.querySelector('.mode')
+		source.collapseButton = viewShadow.querySelector('.collapse')
+		source.reopenButton = viewShadow.querySelector('.reopen')
 		source.canvas = viewShadow.querySelector('canvas')
 		source.level = viewShadow.querySelector('.level')
 		source.modeButton.addEventListener('click', async () => {
@@ -405,6 +447,14 @@
 			source.mode = MODES[(MODES.indexOf(source.mode) + 1) % MODES.length]
 			updateSourceView(source)
 		})
+		source.collapseButton.addEventListener('click', () => setSourceCollapsed(source, true))
+		source.reopenButton.addEventListener('click', async () => {
+			await resumeAudio()
+			setSourceCollapsed(source, false)
+		})
+		for (const eventName of ['pointerdown', 'pointerup', 'click', 'dblclick', 'contextmenu']) {
+			viewHost.addEventListener(eventName, (event) => event.stopPropagation())
+		}
 		updateSourceView(source)
 		return viewHost
 	}
@@ -416,7 +466,14 @@
 		source.modeButton.textContent = MODE_LABELS[source.mode]
 		source.modeButton.title = `Change ${source.label} visualization (currently ${MODE_LABELS[source.mode]})`
 		source.modeButton.setAttribute('aria-label', source.modeButton.title)
+		source.reopenButton.title = `Show ${source.label} audio visualization`
+		source.reopenButton.setAttribute('aria-label', source.reopenButton.title)
 		source.canvas.setAttribute('aria-label', `${source.label} ${MODE_LABELS[source.mode]} visualization`)
+	}
+
+	function setSourceCollapsed(source, value) {
+		source.collapsed = Boolean(value)
+		source.viewHost.dataset.collapsed = String(source.collapsed)
 	}
 
 	function addStream(stream, options = {}) {
@@ -488,6 +545,7 @@
 			label,
 			labelQuality: labelQuality(label),
 			mode: defaultMode,
+			collapsed: false,
 			timeData: new Float32Array(analyser.fftSize),
 			frequencyData: new Uint8Array(analyser.frequencyBinCount),
 			amplitudeHistory: [],
