@@ -6,6 +6,7 @@ const root = path.resolve(__dirname, '..')
 const routes = new Map([
 	['/', ['text/html; charset=utf-8', path.join(root, 'site', 'index.html')]],
 	['/install.js', ['text/javascript; charset=utf-8', path.join(root, 'site', 'install.js')]],
+	['/assets/codemyriad-logo.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'codemyriad-logo.svg')]],
 	['/assets/favicon.0.3.3.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'favicon.0.3.3.svg')]],
 	['/assets/talk-waveforms-showcase.0.3.3.png', ['image/png', path.join(root, 'site', 'assets', 'talk-waveforms-showcase.0.3.3.png')]],
 	['/bookmarklet-loader.js', ['text/javascript; charset=utf-8', path.join(root, 'bookmarklet-loader.js')]],
