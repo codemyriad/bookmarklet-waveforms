@@ -10,8 +10,11 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
 
 	await expect(page).toHaveTitle('Talk waveforms')
-	await expect(page.locator('.showcase img')).toHaveAttribute('src', '/assets/talk-waveforms-showcase.png')
-	await expect(page.locator('.showcase img')).toHaveJSProperty('complete', true)
+	const showcase = page.locator('.showcase img')
+	await expect(showcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.png')
+	await expect(showcase).toHaveJSProperty('complete', true)
+	await expect(showcase).toHaveJSProperty('naturalWidth', 1920)
+	await expect(showcase).toHaveJSProperty('naturalHeight', 1200)
 	const bookmarklet = page.locator('#bookmarklet')
 	await expect(bookmarklet).toHaveClass(/ready/)
 	await expect(bookmarklet).toHaveAttribute('draggable', 'true')
