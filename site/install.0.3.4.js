@@ -115,6 +115,11 @@
 			}
 
 			switch (event.key.toLowerCase()) {
+				case '`':
+				case '~':
+					event.preventDefault()
+					document.querySelector('.brand')?.click()
+					break
 				case 'i':
 					event.preventDefault()
 					focusSection('#install-title')
@@ -126,10 +131,6 @@
 				case 'g':
 					event.preventDefault()
 					document.querySelector('.github-ribbon')?.click()
-					break
-				case 'c':
-					event.preventDefault()
-					document.querySelector('.brand')?.click()
 					break
 			}
 		})

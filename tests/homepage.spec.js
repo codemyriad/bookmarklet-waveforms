@@ -33,6 +33,15 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(keyboardGuide).not.toBeVisible()
 	await page.keyboard.press('i')
 	await expect(page.locator('#install-title')).toBeFocused()
+	await page.evaluate(() => {
+		window.__keyboardShortcutDestination = null
+		document.querySelector('.brand').addEventListener('click', (event) => {
+			event.preventDefault()
+			window.__keyboardShortcutDestination = event.currentTarget.href
+		}, { once: true })
+	})
+	await page.keyboard.press('Backquote')
+	expect(await page.evaluate(() => window.__keyboardShortcutDestination)).toBe('https://codemyriad.io/')
 
 	const showcase = page.locator('.showcase img')
 	await expect(showcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.0.3.3.png')

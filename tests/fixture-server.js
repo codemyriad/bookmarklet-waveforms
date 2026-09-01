@@ -5,7 +5,7 @@ const path = require('node:path')
 const root = path.resolve(__dirname, '..')
 const routes = new Map([
 	['/', ['text/html; charset=utf-8', path.join(root, 'site', 'index.html')]],
-	['/install.0.3.3.js', ['text/javascript; charset=utf-8', path.join(root, 'site', 'install.0.3.3.js')]],
+	['/install.0.3.4.js', ['text/javascript; charset=utf-8', path.join(root, 'site', 'install.0.3.4.js')]],
 	['/assets/codemyriad-logo.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'codemyriad-logo.svg')]],
 	['/assets/favicon.0.3.3.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'favicon.0.3.3.svg')]],
 	['/assets/talk-waveforms-showcase.0.3.3.png', ['image/png', path.join(root, 'site', 'assets', 'talk-waveforms-showcase.0.3.3.png')]],
