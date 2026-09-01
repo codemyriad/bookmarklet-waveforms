@@ -7,7 +7,7 @@
     "test:local": "LOCAL_ASSET=1 playwright test tests/smoke.spec.js",
 		"test:fixture": "LOCAL_FIXTURE=1 LOCAL_ASSET=1 LOCAL_HOMEPAGE=1 TALK_URL=http://127.0.0.1:4173/call/test HOMEPAGE_URL=http://127.0.0.1:4173/ playwright test tests/smoke.spec.js tests/homepage.spec.js",
 		"test:harness": "HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Waveform browser test' | tail -n1)\" playwright test tests/harness.spec.js",
-		"test:showcase": "SHOWCASE_SCREENSHOT=site/assets/talk-waveforms-showcase.png SHOWCASE_SEED=solvay-1911 HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Radiation and Quanta' | tail -n1)\" playwright test tests/harness.spec.js",
+		"test:showcase": "SHOWCASE_SCREENSHOT=site/assets/talk-waveforms-showcase.0.3.3.png SHOWCASE_SEED=solvay-1911 HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Radiation and Quanta' | tail -n1)\" playwright test tests/harness.spec.js",
 		"deploy": "rsync -rv -- site/index.html site/install.js site/assets bookmarklet-loader.js nctalk-waveform.0.3.3.js pgs.sh:/talk-waveforms/"
   },
   "devDependencies": {
