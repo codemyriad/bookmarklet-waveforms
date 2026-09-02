@@ -2,6 +2,16 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { minify } = require('terser')
 
+function encodeJavascriptUrl(source) {
+	// Browsers percent-decode a javascript: URL before parsing it. A literal `%`
+	// can therefore consume following hex digits (for example, `%360`), while
+	// `#` starts a URL fragment and truncates the program. Terser emits one line,
+	// so everything else can remain as compact, readable JavaScript.
+	return source
+		.replaceAll('%', '%25')
+		.replaceAll('#', '%23')
+}
+
 async function main() {
 	const root = path.join(__dirname, '..')
 	const { version } = require(path.join(root, 'package.json'))
@@ -14,11 +24,7 @@ async function main() {
 		format: { comments: false },
 	})
 	if (!result.code) throw new Error('Terser produced an empty bookmarklet')
-	// A bookmark executes as a URL, so the browser percent-decodes its source
-	// before parsing it. Leaving operators such as `%360` unescaped can turn
-	// valid JavaScript into `60` and fail with "Unexpected number". Encode the
-	// complete payload once; the javascript: URL machinery decodes it once.
-	const output = `javascript:${encodeURIComponent(result.code)}\n`
+	const output = `javascript:${encodeJavascriptUrl(result.code)}\n`
 
 	if (process.argv.includes('--check')) {
 		if (!fs.existsSync(outputPath) || fs.readFileSync(outputPath, 'utf8') !== output) {

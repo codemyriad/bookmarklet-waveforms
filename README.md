@@ -22,7 +22,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 ## Files
 
 - `talk-waveforms.0.5.4.js` — versioned visualization payload
-- `bookmarklet-loader.js` — self-contained minified bookmarklet
+- `bookmarklet-loader.js` — self-contained minified bookmarklet, left mostly readable with only URL-significant characters escaped
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
 - `tests/harness.spec.js` — multi-browser Nextcloud Talk integration test

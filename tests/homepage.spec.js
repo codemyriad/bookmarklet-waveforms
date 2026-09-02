@@ -91,7 +91,10 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(bookmarklet).toHaveText('🌊 Talk')
 	const href = await bookmarklet.getAttribute('href')
 	expect(href).toMatch(/^javascript:/)
-	expect(href.length).toBeGreaterThan(20_000)
+	expect(href.length).toBeGreaterThan(25_000)
+	expect(href.length).toBeLessThan(35_000)
+	expect(href).toContain('"use strict"')
+	expect(href).not.toContain('%22use%20strict%22')
 	expect(decodeURIComponent(href)).toContain('0.5.4')
 
 	await bookmarklet.click()

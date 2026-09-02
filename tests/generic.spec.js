@@ -23,7 +23,9 @@ test('uses a floating status and audio window on an unrecognized site', async ({
 		body: '<!doctype html><html><head><meta charset="utf-8"><title>Ordinary page</title></head><body><main>Article</main></body></html>',
 	}))
 	await page.goto(fixtureUrl)
+	expect(bookmarkletUrl).toContain('"use strict"')
 	expect(bookmarkletUrl).toContain('%25')
+	expect(bookmarkletUrl).toContain('%23')
 	try {
 		await page.goto(bookmarkletUrl)
 	} catch (error) {
