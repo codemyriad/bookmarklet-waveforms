@@ -11,9 +11,10 @@ const speechFixture = path.join(gocassiniRoot, 'harness', 'media', 'parakeet-smo
 const loaderPath = path.join(projectRoot, 'bookmarklet-loader.js')
 const participantImageDirectory = path.resolve(process.env.HARNESS_PARTICIPANT_IMAGES_DIR || path.join(projectRoot, 'tests', 'participant-images'))
 const regularParticipantSpecs = [
-	{ name: 'Hypatia', slug: 'hypatia' },
-	{ name: 'Ibn al-Haytham', slug: 'ibn-al-haytham' },
-	{ name: 'Marie Curie', slug: 'marie-curie' },
+	{ name: 'Hypatia', slug: 'hypatia', imageSlug: 'hypatia-listening.0.4.0' },
+	{ name: 'Ibn al-Haytham', slug: 'ibn-al-haytham', imageSlug: 'alan-turing-listening.0.4.0' },
+	{ name: 'Marie Curie', slug: 'marie-curie', imageSlug: 'marie-curie-listening.0.5.3' },
+	{ name: 'Ada Lovelace', slug: 'ada-lovelace', imageSlug: 'ada-lovelace-speaking.0.5.3' },
 ]
 const showcaseCandidates = [
 	{ name: 'Albert Einstein', slug: 'albert-einstein', speakingImage: 'einstein-speaking.0.5.3', listeningImage: 'einstein-listening' },
@@ -304,6 +305,24 @@ async function prepareObserverPage(page, name) {
 	throw new Error('Talk continued to request a reload after the server update')
 }
 
+async function remoteSourcePlacements(page) {
+	return page.evaluate(() => (
+		[...window.__NCTALK_WAVEFORM__.sources.values()]
+			.filter((source) => source.direction === 'remote' && source.origin === 'webrtc')
+			.map((source) => ({
+				label: source.label,
+				cardLabel: source.card?.querySelector([
+					'.video-container__user-name',
+					'.video-container__name',
+					'.displayname',
+					'[class*="participant-name"]',
+					'[class*="user-name"]',
+				].join(','))?.textContent?.replace(/\s+/g, ' ').trim() || '',
+			}))
+			.sort((left, right) => left.label.localeCompare(right.label))
+	))
+}
+
 test('separates every Gocassini participant at the WebRTC receiver boundary', async ({ page }, testInfo) => {
 	test.setTimeout(150_000)
 	const mediaDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'talk-waveforms-'))
@@ -330,6 +349,7 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 		: {}
 
 	try {
+		await page.setViewportSize({ width: 1920, height: 900 })
 		await page.goto(callUrl, { waitUntil: 'domcontentloaded' })
 		const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 		let observerHooked = false
@@ -343,7 +363,8 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 		}
 		if (!observerHooked) throw new Error('Talk reloaded after bookmarklet injection three times')
 
-		await Promise.all(participantSpecs.map(async ({ name, slug, imageSlug = slug }) => {
+		const joinedParticipantNames = []
+		for (const { name, slug, imageSlug = slug } of participantSpecs) {
 			const participantImage = findParticipantImage(imageSlug)
 			const videoFixture = participantImage ? path.join(mediaDirectory, `${slug}.y4m`) : null
 			if (participantImage) prepareParticipantVideo(participantImage, videoFixture)
@@ -364,7 +385,13 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 				userAgent: normalChromeUserAgent,
 			})
 			await joinTalkCall(await context.newPage(), name, { enableCamera: Boolean(videoFixture) })
-		}))
+			joinedParticipantNames.push(name)
+			await expect.poll(() => remoteSourcePlacements(page), { timeout: 30_000 }).toEqual(
+				[...joinedParticipantNames]
+					.sort((left, right) => left.localeCompare(right))
+					.map((participantName) => ({ label: participantName, cardLabel: participantName })),
+			)
+		}
 		const participantNames = participantSpecs.map(({ name }) => name)
 
 		try {

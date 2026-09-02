@@ -22,7 +22,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.3')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.4')
 	expect(await page.evaluate(() => navigator.mediaDevices.getUserMedia === window.__WAVEFORM_NATIVE_GET_USER_MEDIA__)).toBe(true)
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 
@@ -59,6 +59,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 				if (event.track.kind !== 'audio') return
 				const participantCard = document.createElement('div')
 				participantCard.className = 'video-container'
+				participantCard.id = 'container_chima-peer_video_incoming'
 				participantCard.style.cssText = 'position:relative;width:420px;height:180px'
 				const participantName = document.createElement('span')
 				participantName.className = 'video-container__user-name'
@@ -204,6 +205,40 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 
 	await participantOverlay.dispatchEvent('click')
 	expect(await page.evaluate(() => window.__WAVEFORM_CARD_CLICKS__)).toBe(0)
+
+	await page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		const reusedCard = source.card
+		const replacementCard = document.createElement('div')
+		replacementCard.className = 'video-container'
+		replacementCard.id = 'container_chima-peer_video_incoming'
+		replacementCard.style.cssText = 'position:relative;width:420px;height:180px'
+		const replacementName = document.createElement('span')
+		replacementName.className = 'video-container__user-name'
+		replacementName.textContent = 'Synthetic remote participant'
+		replacementCard.append(replacementName)
+		reusedCard.before(replacementCard)
+		reusedCard.id = 'container_chris-peer_video_incoming'
+		reusedCard.querySelector('.video-container__user-name').textContent = 'New participant'
+		window.__WAVEFORM_REPLACEMENT_CARD__ = replacementCard
+		window.__NCTALK_WAVEFORM__.scan()
+	})
+	await expect.poll(() => page.evaluate(() => {
+		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]
+			.find((candidate) => candidate.label === 'Synthetic remote participant')
+		return {
+			participantId: source.nextcloudParticipantId,
+			movedToReplacement: source.card === window.__WAVEFORM_REPLACEMENT_CARD__,
+			cardId: source.card?.id,
+		}
+	})).toEqual({
+		participantId: 'chima-peer',
+		movedToReplacement: true,
+		cardId: 'container_chima-peer_video_incoming',
+	})
+	await expect(page.locator('#container_chris-peer_video_incoming > .nctalk-waveform-source')).toHaveCount(0)
+	await expect(page.locator('#container_chima-peer_video_incoming > .nctalk-waveform-source')).toHaveCount(1)
 
 	const beforeCollapsedSampling = await page.evaluate(() => {
 		const source = [...window.__NCTALK_WAVEFORM__.sources.values()]

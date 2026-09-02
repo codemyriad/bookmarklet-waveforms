@@ -21,7 +21,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 
 ## Files
 
-- `talk-waveforms.0.5.3.js` — versioned visualization payload
+- `talk-waveforms.0.5.4.js` — versioned visualization payload
 - `bookmarklet-loader.js` — self-contained minified bookmarklet
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
@@ -52,7 +52,7 @@ For the full Nextcloud integration test, start the sibling Gocassini stack:
 npm run test:harness
 ```
 
-The test joins one observer and three real browser participants. CI repeats it against a past, current, and future Nextcloud/Talk combination.
+The test joins one observer and four camera participants in sequence. After every join it verifies that each source remains on the card with the same participant identity. CI repeats it against a past, current, and future Nextcloud/Talk combination.
 
 The Jitsi test uses the official `jitsi/docker-jitsi-meet` release pinned in CI (`stable-11146-2`). Start that stack with `tests/jitsi.env`, then run:
 

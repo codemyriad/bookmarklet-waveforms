@@ -63,7 +63,7 @@ test('maps Microsoft Teams media streams without requiring a Trusted Types polic
 			cardId: source.card?.dataset.cid,
 		})),
 	}))
-	expect(state.version).toBe('0.5.3')
+	expect(state.version).toBe('0.5.4')
 	expect(state.platform).toBe('microsoft-teams')
 	expect(state.sources.map(({ label }) => label).sort()).toEqual(['Cleopatra VII', 'Julius Caesar', 'You'])
 	expect(state.sources.filter(({ direction }) => direction === 'local')).toHaveLength(1)
@@ -100,7 +100,7 @@ test('loads on the supplied Microsoft Teams page', async ({ page }) => {
 		platform: window.__TALK_WAVEFORMS__?.platform,
 		message: window.__TALK_WAVEFORMS__?.host?.shadowRoot?.querySelector('.empty')?.textContent,
 	})), { timeout: 15_000 }).toEqual({
-		version: '0.5.3',
+		version: '0.5.4',
 		platform: 'microsoft-teams',
 		message: 'No call audio found yet.',
 	})

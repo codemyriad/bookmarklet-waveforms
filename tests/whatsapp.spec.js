@@ -48,7 +48,7 @@ test('executes as a real bookmark URL on a synthetic WhatsApp-origin page', asyn
 		platform: window.__TALK_WAVEFORMS__.platform,
 		message: element.shadowRoot.querySelector('.empty').textContent,
 	}))).toEqual({
-		version: '0.5.3',
+		version: '0.5.4',
 		platform: 'whatsapp',
 		message: 'No call audio found yet. Join the call or try Mic test.',
 	})
