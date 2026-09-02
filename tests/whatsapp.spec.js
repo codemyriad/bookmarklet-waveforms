@@ -48,7 +48,7 @@ test('executes as a real bookmark URL on a synthetic WhatsApp-origin page', asyn
 		platform: window.__TALK_WAVEFORMS__.platform,
 		message: element.shadowRoot.querySelector('.empty').textContent,
 	}))).toEqual({
-		version: '0.5.2',
+		version: '0.5.3',
 		platform: 'whatsapp',
 		message: 'No call audio found yet. Join the call or try Mic test.',
 	})
@@ -61,4 +61,58 @@ test('executes as a real bookmark URL on a synthetic WhatsApp-origin page', asyn
 	})).toEqual({ label: 'You', direction: 'local', origin: 'get-user-media', placement: 'fallback' })
 	expect(dialogs).toEqual([])
 	expect(pageErrors).toEqual([])
+})
+
+test('discovers a WhatsApp peer connection that was already running', async ({ page }) => {
+	await page.route(fixtureUrl, (route) => route.fulfill({
+		status: 200,
+		contentType: 'text/html',
+		body: '<!doctype html><html><head><title>WhatsApp call</title></head><body><main>Active call</main></body></html>',
+	}))
+	await page.goto(fixtureUrl)
+	await page.evaluate(async () => {
+		const context = new AudioContext()
+		const oscillator = context.createOscillator()
+		const destination = context.createMediaStreamDestination()
+		oscillator.connect(destination)
+		oscillator.start()
+		const sendingPeer = new RTCPeerConnection()
+		const receivingPeer = new RTCPeerConnection()
+		sendingPeer.onicecandidate = ({ candidate }) => candidate && receivingPeer.addIceCandidate(candidate)
+		receivingPeer.onicecandidate = ({ candidate }) => candidate && sendingPeer.addIceCandidate(candidate)
+		const remoteTrack = new Promise((resolve) => receivingPeer.addEventListener('track', ({ track }) => resolve(track), { once: true }))
+		sendingPeer.addTrack(destination.stream.getAudioTracks()[0], destination.stream)
+		await sendingPeer.setLocalDescription(await sendingPeer.createOffer())
+		await receivingPeer.setRemoteDescription(sendingPeer.localDescription)
+		await receivingPeer.setLocalDescription(await receivingPeer.createAnswer())
+		await sendingPeer.setRemoteDescription(receivingPeer.localDescription)
+		await remoteTrack
+		window.__WHATSAPP_EXISTING_CALL__ = { context, oscillator, destination, sendingPeer, receivingPeer }
+	})
+
+	try {
+		await page.goto(bookmarkletUrl)
+	} catch (error) {
+		if (!error.message.includes('ERR_ABORTED')) throw error
+	}
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__?.sources.size)).toBe(0)
+
+	await page.evaluate(() => window.__WHATSAPP_EXISTING_CALL__.receivingPeer.getStats())
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__TALK_WAVEFORMS__.sources.values()].map((source) => ({
+			direction: source.direction,
+			origin: source.origin,
+			placement: source.viewHost.dataset.placement,
+		}))
+	))).toEqual([{ direction: 'remote', origin: 'webrtc', placement: 'fallback' }])
+
+	await page.evaluate(async () => {
+		window.__TALK_WAVEFORMS__.destroy()
+		const fixture = window.__WHATSAPP_EXISTING_CALL__
+		fixture.sendingPeer.close()
+		fixture.receivingPeer.close()
+		fixture.oscillator.stop()
+		fixture.destination.stream.getTracks().forEach((track) => track.stop())
+		await fixture.context.close()
+	})
 })

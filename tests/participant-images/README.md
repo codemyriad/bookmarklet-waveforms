@@ -10,6 +10,13 @@ npm run test:showcase
 
 Each still is converted to a short Y4M camera feed and published by a separate real browser participant. The PNGs are stored with Git LFS. For ordinary compatibility tests, missing portraits fall back to Nextcloud avatars.
 
+The versioned `0.5.3` feeds refresh the four people selected by the default
+Solvay seed: Einstein speaks while Rutherford, Poincaré, and Curie listen.
+They are photorealistic raw laptop-webcam frames set around the 1911 Solvay
+Conference, with modern headsets, plausible digital sensor and compression
+artifacts, and subtle physics objects in their offices. They contain no call
+UI, captions, logos, readable text, sepia, film grain, or analog damage.
+
 The versioned `0.4.0` portraits form a second set for the automated Jitsi
 showcase. They are deliberately fictional raw camera feeds:
 

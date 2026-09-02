@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test')
 
 const homepageUrl = process.env.HOMEPAGE_URL || 'https://silvio-talk-waveforms.pgs.sh/'
-const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.5.2.js'
+const payloadUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.5.3.js'
 
 test('homepage prepares a draggable and copyable bookmarklet', async ({ page, context }) => {
 	await context.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: homepageUrl })
@@ -18,6 +18,14 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
 	await expect(page.getByRole('heading', { name: 'How it looks like' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'Supported platforms' })).toBeVisible()
+	await expect(page.locator('.platform-list li')).toHaveText([
+		'Nextcloud Talk',
+		'Jitsi Meet',
+		'Google Meet',
+		'Microsoft Teams',
+	])
+	await expect(page.locator('.platform-note')).toHaveText('Best effort: WhatsApp and other browser calls use a floating panel for audio the page makes available.')
 	await expect(page.locator('.instructions li').nth(2)).toHaveText('Click the bookmark.')
 	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['Ctrl', '⇧', 'B'])
 
@@ -64,10 +72,11 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(teamsShowcase).toHaveJSProperty('naturalWidth', 2560)
 	await expect(teamsShowcase).toHaveJSProperty('naturalHeight', 1600)
 	const nextcloudShowcase = showcases.nth(3)
+	await expect(nextcloudShowcase).toHaveAttribute('src', '/assets/talk-waveforms-showcase.0.5.3.png')
 	await nextcloudShowcase.scrollIntoViewIfNeeded()
 	await expect(nextcloudShowcase).toHaveJSProperty('complete', true)
-	await expect(nextcloudShowcase).toHaveJSProperty('naturalWidth', 1280)
-	await expect(nextcloudShowcase).toHaveJSProperty('naturalHeight', 800)
+	await expect(nextcloudShowcase).toHaveJSProperty('naturalWidth', 2560)
+	await expect(nextcloudShowcase).toHaveJSProperty('naturalHeight', 1600)
 	await expect(page.locator('.showcase figcaption')).toHaveText([
 		'Four participants · three views',
 		'The Analytical Engine · four microphones',
@@ -81,7 +90,7 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	const href = await bookmarklet.getAttribute('href')
 	expect(href).toMatch(/^javascript:/)
 	expect(href.length).toBeGreaterThan(20_000)
-	expect(decodeURIComponent(href)).toContain('0.5.2')
+	expect(decodeURIComponent(href)).toContain('0.5.3')
 
 	await bookmarklet.click()
 	await expect(page.locator('#status')).toHaveText('Copied the complete javascript: bookmarklet. Paste it into a bookmark’s URL field.')
@@ -99,7 +108,7 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	if (process.env.LOCAL_HOMEPAGE !== '1') {
 		const payloadResponse = await page.request.get(payloadUrl)
 		expect(payloadResponse.status()).toBe(200)
-		expect(await payloadResponse.text()).toContain("const VERSION = '0.5.2'")
+		expect(await payloadResponse.text()).toContain("const VERSION = '0.5.3'")
 	}
 })
 

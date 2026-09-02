@@ -22,7 +22,7 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.2')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.3')
 	expect(await page.evaluate(() => navigator.mediaDevices.getUserMedia === window.__WAVEFORM_NATIVE_GET_USER_MEDIA__)).toBe(true)
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 

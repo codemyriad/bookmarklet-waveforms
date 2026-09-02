@@ -113,7 +113,7 @@ test('maps every Jitsi audio track to its participant tile', async ({ page }, te
 			version: window.__TALK_WAVEFORMS__?.version,
 			platform: window.__TALK_WAVEFORMS__?.platform,
 			legacyAlias: window.__NCTALK_WAVEFORM__ === window.__TALK_WAVEFORMS__,
-		}))).toEqual({ version: '0.5.2', platform: 'jitsi', legacyAlias: true })
+		}))).toEqual({ version: '0.5.3', platform: 'jitsi', legacyAlias: true })
 		await page.getByTestId('prejoin.joinMeeting').click()
 		await expect(page.getByTestId('prejoin.screen')).toBeHidden({ timeout: 30_000 })
 

@@ -21,7 +21,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 
 ## Files
 
-- `talk-waveforms.0.5.2.js` — versioned visualization payload
+- `talk-waveforms.0.5.3.js` — versioned visualization payload
 - `bookmarklet-loader.js` — self-contained minified bookmarklet
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
@@ -68,6 +68,10 @@ The Google Meet and Teams showcases use the same real payload with four schedule
 npm run test:google:showcase
 npm run test:teams:showcase
 ```
+
+The Nextcloud showcase runs against the real Gocassini Talk stack. Its default
+Solvay seed uses four versioned webcam feeds and scheduled speech turns, and
+captures the homepage image at 2560×1600 with `npm run test:showcase`.
 
 ## Deploy
 

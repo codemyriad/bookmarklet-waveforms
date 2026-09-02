@@ -16,11 +16,11 @@ const regularParticipantSpecs = [
 	{ name: 'Marie Curie', slug: 'marie-curie' },
 ]
 const showcaseCandidates = [
-	{ name: 'Albert Einstein', slug: 'albert-einstein', speakingImage: 'einstein-speaking', listeningImage: 'einstein-listening' },
-	{ name: 'Ernest Rutherford', slug: 'ernest-rutherford', speakingImage: 'rutherford-speaking', listeningImage: 'rutherford-listening' },
-	{ name: 'Marie Curie', slug: 'marie-curie', speakingImage: 'marie-curie', listeningImage: 'marie-curie-listening' },
+	{ name: 'Albert Einstein', slug: 'albert-einstein', speakingImage: 'einstein-speaking.0.5.3', listeningImage: 'einstein-listening' },
+	{ name: 'Ernest Rutherford', slug: 'ernest-rutherford', speakingImage: 'rutherford-speaking', listeningImage: 'rutherford-listening.0.5.3' },
+	{ name: 'Marie Curie', slug: 'marie-curie', speakingImage: 'marie-curie', listeningImage: 'marie-curie-listening.0.5.3' },
 	{ name: 'Paul Langevin', slug: 'paul-langevin', speakingImage: 'paul-langevin', listeningImage: 'paul-langevin-listening' },
-	{ name: 'Henri Poincaré', slug: 'henri-poincare', speakingImage: 'henri-poincare', listeningImage: 'henri-poincare-listening' },
+	{ name: 'Henri Poincaré', slug: 'henri-poincare', speakingImage: 'henri-poincare', listeningImage: 'henri-poincare-listening.0.5.3' },
 ]
 const normalChromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
 const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
@@ -572,7 +572,7 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 			}
 		})
 		await page.waitForTimeout(500)
-		await page.screenshot({ path: screenshotPath, scale: 'css' })
+		await page.screenshot({ path: screenshotPath, scale: isShowcase ? 'device' : 'css' })
 	} finally {
 		await Promise.all(participantBrowsers.map((browser) => browser.close()))
 		fs.rmSync(mediaDirectory, { recursive: true, force: true })

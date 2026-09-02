@@ -35,7 +35,8 @@ test('uses a floating status and audio window on an unrecognized site', async ({
 	expect(await host.evaluate((element) => ({
 		platform: window.__TALK_WAVEFORMS__.platform,
 		message: element.shadowRoot.querySelector('.empty').textContent,
-	}))).toEqual({ platform: 'generic', message: 'No audio streams found on this page.' })
+		hasWindowMinimize: Boolean(element.shadowRoot.querySelector('.header .collapse, .reopen')),
+	}))).toEqual({ platform: 'generic', message: 'No audio streams found on this page.', hasWindowMinimize: false })
 
 	await page.evaluate(() => {
 		const context = new AudioContext()
@@ -93,4 +94,49 @@ test('captures audible media that does not expose srcObject', async ({ page }) =
 		const source = [...window.__TALK_WAVEFORMS__.sources.values()][0]
 		return { label: source.label, placement: source.viewHost.dataset.placement }
 	})).toEqual({ label: 'Mixed call audio', placement: 'fallback' })
+})
+
+test('Mic test toggles one owned microphone visualization', async ({ page }) => {
+	await page.route(fixtureUrl, (route) => route.fulfill({
+		status: 200,
+		contentType: 'text/html',
+		body: '<!doctype html><html><body><main>Microphone fixture</main></body></html>',
+	}))
+	await page.goto(fixtureUrl)
+	await page.evaluate(() => {
+		const context = new AudioContext()
+		const oscillator = context.createOscillator()
+		const destination = context.createMediaStreamDestination()
+		oscillator.connect(destination)
+		oscillator.start()
+		window.__MIC_TOGGLE_FIXTURE__ = { context, destination, oscillator, requests: 0, streams: [] }
+		navigator.mediaDevices.getUserMedia = async () => {
+			window.__MIC_TOGGLE_FIXTURE__.requests++
+			const stream = new MediaStream(destination.stream.getAudioTracks().map((track) => track.clone()))
+			window.__MIC_TOGGLE_FIXTURE__.streams.push(stream)
+			return stream
+		}
+	})
+	await page.evaluate(bookmarklet)
+
+	const micButton = page.locator('#nctalk-waveform').locator('button.mic')
+	await expect(micButton).toHaveText('Mic test')
+	await micButton.click()
+	await expect(micButton).toHaveText('Stop mic test')
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__TALK_WAVEFORMS__.sources.values()].filter((source) => source.origin === 'capture').length
+	))).toBe(1)
+
+	await micButton.click()
+	await expect(micButton).toHaveText('Mic test')
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size)).toBe(0)
+	expect(await page.evaluate(() => window.__MIC_TOGGLE_FIXTURE__.streams[0].getTracks()[0].readyState)).toBe('ended')
+
+	await micButton.click()
+	await expect.poll(() => page.evaluate(() => ({
+		requests: window.__MIC_TOGGLE_FIXTURE__.requests,
+		captures: [...window.__TALK_WAVEFORMS__.sources.values()].filter((source) => source.origin === 'capture').length,
+	}))).toEqual({ requests: 2, captures: 1 })
+	await micButton.click()
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size)).toBe(0)
 })

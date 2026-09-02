@@ -84,7 +84,7 @@ test('maps already-rendered Google Meet streams to participant tiles', async ({ 
 			trackCount: source.stream.getAudioTracks().length,
 		})),
 	}))
-	expect(state.version).toBe('0.5.2')
+	expect(state.version).toBe('0.5.3')
 	expect(state.platform).toBe('google-meet')
 	expect(state.sources.map(({ label }) => label).sort()).toEqual(['Ada Lovelace', 'Alan Turing', 'You'])
 	for (const source of state.sources) {
@@ -133,6 +133,6 @@ test('loads on the supplied Google Meet page', async ({ page }) => {
 	await expect.poll(() => page.evaluate(() => ({
 		version: window.__TALK_WAVEFORMS__?.version,
 		platform: window.__TALK_WAVEFORMS__?.platform,
-	})), { timeout: 15_000 }).toEqual({ version: '0.5.2', platform: 'google-meet' })
+	})), { timeout: 15_000 }).toEqual({ version: '0.5.3', platform: 'google-meet' })
 	expect(dialogs).toEqual([])
 })
