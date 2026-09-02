@@ -1,19 +1,20 @@
 {
   "name": "bookmarklet-waveforms",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "scripts": {
     "build:bookmarklet": "node scripts/build-bookmarklet.js",
     "check:bookmarklet": "node scripts/build-bookmarklet.js --check",
     "test": "playwright test",
     "test:local": "LOCAL_ASSET=1 playwright test tests/smoke.spec.js",
-		"test:fixture": "LOCAL_FIXTURE=1 LOCAL_ASSET=1 LOCAL_HOMEPAGE=1 TALK_URL=http://127.0.0.1:4173/call/test HOMEPAGE_URL=http://127.0.0.1:4173/ playwright test tests/smoke.spec.js tests/homepage.spec.js tests/google-meet.spec.js tests/microsoft-teams.spec.js tests/generic.spec.js",
+    "test:fixture": "LOCAL_FIXTURE=1 LOCAL_ASSET=1 LOCAL_HOMEPAGE=1 TALK_URL=http://127.0.0.1:4173/call/test HOMEPAGE_URL=http://127.0.0.1:4173/ playwright test tests/smoke.spec.js tests/homepage.spec.js tests/google-meet.spec.js tests/microsoft-teams.spec.js tests/generic.spec.js tests/whatsapp.spec.js",
     "test:harness": "HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Waveform browser test' | tail -n1)\" playwright test tests/harness.spec.js",
     "test:jitsi": "playwright test tests/jitsi-harness.spec.js",
-		"test:jitsi:showcase": "JITSI_SCREENSHOT=site/assets/jitsi-waveforms-showcase.0.4.0.png JITSI_URL=http://127.0.0.1:18000/CanWeHearTheDifference playwright test tests/jitsi-harness.spec.js --workers=1",
-		"test:teams:showcase": "TEAMS_SCREENSHOT=site/assets/teams-waveforms-showcase.0.5.0.png playwright test tests/teams-showcase.spec.js --workers=1",
+    "test:jitsi:showcase": "JITSI_SCREENSHOT=site/assets/jitsi-waveforms-showcase.0.4.0.png JITSI_URL=http://127.0.0.1:18000/CanWeHearTheDifference playwright test tests/jitsi-harness.spec.js --workers=1",
+    "test:teams:showcase": "TEAMS_SCREENSHOT=site/assets/teams-waveforms-showcase.0.5.0.png playwright test tests/teams-showcase.spec.js --workers=1",
+    "test:google:showcase": "GOOGLE_SCREENSHOT=site/assets/google-meet-waveforms-showcase.0.5.1.png playwright test tests/google-meet-showcase.spec.js --workers=1",
     "test:showcase": "SHOWCASE_SCREENSHOT=site/assets/talk-waveforms-showcase.0.3.3.png SHOWCASE_SEED=solvay-1911 HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Radiation and Quanta' | tail -n1)\" playwright test tests/harness.spec.js",
-    "deploy": "rsync -rv -- site/_headers site/index.html site/install.0.5.0.js site/assets bookmarklet-loader.js talk-waveforms.0.5.0.js pgs.sh:/talk-waveforms/"
+    "deploy": "rsync -rv -- site/_headers site/index.html site/install.0.5.1.js site/assets bookmarklet-loader.js talk-waveforms.0.5.1.js pgs.sh:/talk-waveforms/"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

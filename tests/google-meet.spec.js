@@ -4,7 +4,7 @@ const path = require('node:path')
 
 const fixtureUrl = 'https://meet.google.com/abc-defg-hij'
 const liveUrl = process.env.GOOGLE_MEET_URL
-const loader = fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').replace(/^javascript:/, '')
+const loader = decodeURIComponent(fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').trim().replace(/^javascript:/, ''))
 
 test('maps already-rendered Google Meet streams to participant tiles', async ({ page }) => {
 	await page.route(fixtureUrl, (route) => route.fulfill({
@@ -71,7 +71,7 @@ test('maps already-rendered Google Meet streams to participant tiles', async ({ 
 			trackCount: source.stream.getAudioTracks().length,
 		})),
 	}))
-	expect(state.version).toBe('0.5.0')
+	expect(state.version).toBe('0.5.1')
 	expect(state.platform).toBe('google-meet')
 	expect(state.sources.map(({ label }) => label).sort()).toEqual(['Ada Lovelace', 'Alan Turing', 'You'])
 	for (const source of state.sources) {
@@ -120,6 +120,6 @@ test('loads on the supplied Google Meet page', async ({ page }) => {
 	await expect.poll(() => page.evaluate(() => ({
 		version: window.__TALK_WAVEFORMS__?.version,
 		platform: window.__TALK_WAVEFORMS__?.platform,
-	})), { timeout: 15_000 }).toEqual({ version: '0.5.0', platform: 'google-meet' })
+	})), { timeout: 15_000 }).toEqual({ version: '0.5.1', platform: 'google-meet' })
 	expect(dialogs).toEqual([])
 })

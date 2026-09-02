@@ -3,14 +3,17 @@ const fs = require('node:fs')
 const path = require('node:path')
 
 const fixtureUrl = 'https://example.test/an-ordinary-page'
-const bookmarklet = fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').replace(/^javascript:/, '')
+const bookmarkletUrl = fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').trim()
+const bookmarklet = decodeURIComponent(bookmarkletUrl.replace(/^javascript:/, ''))
 
 test('uses a floating status and audio window on an unrecognized site', async ({ page }) => {
 	const dialogs = []
+	const pageErrors = []
 	page.on('dialog', async (dialog) => {
 		dialogs.push(dialog.message())
 		await dialog.dismiss()
 	})
+	page.on('pageerror', (error) => pageErrors.push(error.message))
 	await page.route(fixtureUrl, (route) => route.fulfill({
 		status: 200,
 		headers: {
@@ -20,7 +23,12 @@ test('uses a floating status and audio window on an unrecognized site', async ({
 		body: '<!doctype html><html><head><meta charset="utf-8"><title>Ordinary page</title></head><body><main>Article</main></body></html>',
 	}))
 	await page.goto(fixtureUrl)
-	await page.evaluate(bookmarklet)
+	expect(bookmarkletUrl).toContain('%25')
+	try {
+		await page.goto(bookmarkletUrl)
+	} catch (error) {
+		if (!error.message.includes('ERR_ABORTED')) throw error
+	}
 
 	const host = page.locator('#nctalk-waveform')
 	await expect(host).toBeVisible()
@@ -50,6 +58,7 @@ test('uses a floating status and audio window on an unrecognized site', async ({
 	})
 	expect(source).toEqual({ label: 'Page audio', mode: 'spectrogram', placement: 'fallback', card: null })
 	expect(dialogs).toEqual([])
+	expect(pageErrors).toEqual([])
 
 	await page.evaluate(async () => {
 		window.__TALK_WAVEFORMS__.destroy()
@@ -57,4 +66,31 @@ test('uses a floating status and audio window on an unrecognized site', async ({
 		window.__GENERIC_AUDIO__.destination.stream.getTracks().forEach((track) => track.stop())
 		await window.__GENERIC_AUDIO__.context.close()
 	})
+})
+
+test('captures audible media that does not expose srcObject', async ({ page }) => {
+	await page.route(fixtureUrl, (route) => route.fulfill({
+		status: 200,
+		contentType: 'text/html',
+		body: '<!doctype html><html><body><audio aria-label="Mixed call audio"></audio></body></html>',
+	}))
+	await page.goto(fixtureUrl)
+	await page.evaluate(() => {
+		const context = new AudioContext()
+		const oscillator = context.createOscillator()
+		const destination = context.createMediaStreamDestination()
+		oscillator.connect(destination)
+		oscillator.start()
+		const audio = document.querySelector('audio')
+		Object.defineProperty(audio, 'readyState', { configurable: true, get: () => HTMLMediaElement.HAVE_ENOUGH_DATA })
+		audio.captureStream = () => destination.stream
+		window.__CAPTURE_STREAM_FIXTURE__ = { context, oscillator, destination }
+	})
+	await page.evaluate(bookmarklet)
+
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__?.sources.size)).toBe(1)
+	expect(await page.evaluate(() => {
+		const source = [...window.__TALK_WAVEFORMS__.sources.values()][0]
+		return { label: source.label, placement: source.viewHost.dataset.placement }
+	})).toEqual({ label: 'Mixed call audio', placement: 'fallback' })
 })

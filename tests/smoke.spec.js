@@ -16,12 +16,14 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		localStorage.removeItem('nctalk-waveform-placement')
 		window.__WAVEFORM_NATIVE_SET_REMOTE__ = RTCPeerConnection.prototype.setRemoteDescription
 		window.__WAVEFORM_NATIVE_ADD_TRACK__ = RTCPeerConnection.prototype.addTrack
+		window.__WAVEFORM_NATIVE_GET_USER_MEDIA__ = navigator.mediaDevices.getUserMedia
 	})
 
-	const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
+	const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.0')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.1')
+	expect(await page.evaluate(() => navigator.mediaDevices.getUserMedia === window.__WAVEFORM_NATIVE_GET_USER_MEDIA__)).toBe(false)
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
 
 	await page.evaluate(async () => {
@@ -303,5 +305,6 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	await expect(page.locator('.nctalk-waveform-source')).toHaveCount(0)
 	expect(await page.evaluate(() => RTCPeerConnection.prototype.setRemoteDescription === window.__WAVEFORM_NATIVE_SET_REMOTE__)).toBe(true)
 	expect(await page.evaluate(() => RTCPeerConnection.prototype.addTrack === window.__WAVEFORM_NATIVE_ADD_TRACK__)).toBe(true)
+	expect(await page.evaluate(() => navigator.mediaDevices.getUserMedia === window.__WAVEFORM_NATIVE_GET_USER_MEDIA__)).toBe(true)
 	expect(browserErrors).toEqual([])
 })

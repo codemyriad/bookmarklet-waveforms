@@ -7,7 +7,7 @@ const path = require('node:path')
 const screenshotPath = process.env.TEAMS_SCREENSHOT
 const projectRoot = path.join(__dirname, '..')
 const participantImageDirectory = path.join(projectRoot, 'tests', 'participant-images')
-const bookmarklet = fs.readFileSync(path.join(projectRoot, 'bookmarklet-loader.js'), 'utf8').replace(/^javascript:/, '')
+const bookmarklet = decodeURIComponent(fs.readFileSync(path.join(projectRoot, 'bookmarklet-loader.js'), 'utf8').trim().replace(/^javascript:/, ''))
 const fixtureUrl = 'https://teams.live.com/light-meetings/launch?showcase=calendar-reform'
 const participants = [
 	{

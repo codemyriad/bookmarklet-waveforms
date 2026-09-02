@@ -65,9 +65,9 @@
 		.showcase .section-heading { border: 1px solid var(--base-300); }
 		.showcase-grid { display: grid; gap: 24px; margin-top: 18px; }
 		.showcase figure { margin: 0; }
+		.showcase-platform { margin: 0; padding: 13px 14px; color: #fafafa; background: rgba(255, 255, 255, .035); border: solid var(--base-300); border-width: 1px 1px 0; font-size: 1rem; font-weight: 600; letter-spacing: .06em; }
 		.showcase img { display: block; width: 100%; height: auto; border: 1px solid var(--base-300); }
-		.showcase figcaption { display: flex; justify-content: space-between; gap: 16px; padding: 10px 12px; color: var(--content-muted); border: solid var(--base-300); border-width: 0 1px 1px; font-size: .7rem; letter-spacing: .06em; }
-		.showcase figcaption span:first-child { color: #fafafa; }
+		.showcase figcaption { padding: 10px 12px; color: var(--content-muted); border: solid var(--base-300); border-width: 0 1px 1px; font-size: .78rem; letter-spacing: .04em; }
 		.site-footer { padding: 20px; border-top: 1px solid var(--base-300); color: rgba(250, 250, 250, .48); font-size: .72rem; }
 		.site-footer .content { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 28px; }
 		.footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
@@ -104,7 +104,7 @@
 			.shortcut-list li { grid-template-columns: 78px minmax(0, 1fr); }
 		}
 	</style>
-	<script src="/install.0.5.0.js" defer></script>
+	<script src="/install.0.5.1.js" defer></script>
 </head>
 <body>
 	<a class="github-ribbon" href="https://github.com/codemyriad/bookmarklet-waveforms" aria-label="Fork Talk waveforms on GitHub">Fork me on GitHub</a>
@@ -120,7 +120,7 @@
 		<div class="content">
 			<section class="hero" aria-labelledby="page-title">
 				<h1 id="page-title">See the call audio.</h1>
-				<p class="lede">See what others hear from your mic—and whose mic that bark, buzz, or background noise came from—in Nextcloud Talk, Jitsi Meet, Google Meet, or Microsoft Teams.</p>
+				<p class="lede">See what others hear from your mic—and whose mic that bark, buzz, or background noise came from—in Nextcloud Talk, Jitsi Meet, Google Meet, Microsoft Teams, WhatsApp, and other browser calls.</p>
 			</section>
 			<section class="card" aria-labelledby="install-title">
 				<h2 id="install-title" class="section-heading"><span>Install</span><span class="index">01</span></h2>
@@ -148,17 +148,25 @@
 			<section class="showcase" aria-labelledby="showcase-title">
 				<h2 id="showcase-title" class="section-heading"><span>How it looks like</span><span class="index">02</span></h2>
 				<div class="showcase-grid">
-					<figure>
+					<figure aria-labelledby="jitsi-showcase-title">
+						<h3 id="jitsi-showcase-title" class="showcase-platform">Jitsi Meet</h3>
 						<img src="/assets/jitsi-waveforms-showcase.0.4.0.png" width="2560" height="1600" loading="lazy" alt="A Jitsi Meet call between Ada Lovelace, Alan Turing, Hypatia, and Mary Somerville, with a separate audio visualization attached to each participant">
-						<figcaption><span>Jitsi Meet</span><span>Four participants · three views</span></figcaption>
+						<figcaption>Four participants · three views</figcaption>
 					</figure>
-					<figure>
+					<figure aria-labelledby="google-showcase-title">
+						<h3 id="google-showcase-title" class="showcase-platform">Google Meet</h3>
+						<img src="/assets/google-meet-waveforms-showcase.0.5.1.png" width="2560" height="1600" loading="lazy" alt="A Google Meet conversation about whether the Analytical Engine could compose music between Charles Babbage, Mary Somerville, Michael Faraday, and Ada Lovelace, with four different audio views">
+						<figcaption>The Analytical Engine · four microphones</figcaption>
+					</figure>
+					<figure aria-labelledby="teams-showcase-title">
+						<h3 id="teams-showcase-title" class="showcase-platform">Microsoft Teams</h3>
 						<img src="/assets/teams-waveforms-showcase.0.5.0.png" width="2560" height="1600" loading="lazy" alt="A Microsoft Teams call about calendar reform between Julius Caesar, Cleopatra, Cicero, and Sosigenes, with a separate audio visualization on every participant">
-						<figcaption><span>Microsoft Teams</span><span>Calendar reform · four microphones</span></figcaption>
+						<figcaption>Calendar reform · four microphones</figcaption>
 					</figure>
-					<figure>
+					<figure aria-labelledby="nextcloud-showcase-title">
+						<h3 id="nextcloud-showcase-title" class="showcase-platform">Nextcloud Talk</h3>
 						<img src="/assets/talk-waveforms-showcase.0.3.3.png" width="1280" height="800" loading="lazy" alt="A Nextcloud Talk call between four physicists, with two spectrograms, a waveform, and a level history shown on separate participant cards">
-						<figcaption><span>Nextcloud Talk</span><span>One graph per microphone</span></figcaption>
+						<figcaption>One graph per microphone</figcaption>
 					</figure>
 				</div>
 			</section>
@@ -166,11 +174,11 @@
 	</main>
 	<footer class="site-footer">
 		<div class="content">
-			<span>Version 0.5.0</span>
+			<span>Version 0.5.1</span>
 			<nav class="footer-links" aria-label="Project links">
 				<a href="https://codemyriad.io/">Made by Code Myriad</a>
 				<a href="https://github.com/codemyriad/bookmarklet-waveforms">GitHub</a>
-				<a href="/talk-waveforms.0.5.0.js">Hosted source</a>
+				<a href="/talk-waveforms.0.5.1.js">Hosted source</a>
 			</nav>
 		</div>
 	</footer>

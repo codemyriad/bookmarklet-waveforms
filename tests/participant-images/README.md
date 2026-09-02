@@ -38,3 +38,19 @@ about Caesar's calendar reform:
 All four prompts asked for photorealistic 2020s webcam or phone-front-camera
 frames, digital compression and imperfect auto-exposure, historically grounded
 rooms and clothing, no call UI, no readable text, and no analog-film treatment.
+
+The Google Meet set imagines an 1843 conversation about whether the Analytical
+Engine could compose music:
+
+- Ada Lovelace speaks from a study with a punched-card music box.
+- Charles Babbage listens beside the Difference Engine; one gear resembles a
+  musical note.
+- Mary Somerville listens in a daylight study with a subtle wave drawing.
+- Michael Faraday listens from his laboratory, where a loose copper wire curls
+  like a treble clef.
+
+These were generated as raw, photorealistic 16:9 laptop-webcam feeds: modern
+headsets, natural digital camera noise and compression, safe space along the
+lower edge for overlays, and no platform UI, captions, logos, readable text,
+sepia, film grain, or costume-drama lighting. Capture the final 2560×1600 Google
+Meet composition with `npm run test:google:showcase`.

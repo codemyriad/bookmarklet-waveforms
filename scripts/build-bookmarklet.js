@@ -14,7 +14,11 @@ async function main() {
 		format: { comments: false },
 	})
 	if (!result.code) throw new Error('Terser produced an empty bookmarklet')
-	const output = `javascript:${result.code}\n`
+	// A bookmark executes as a URL, so the browser percent-decodes its source
+	// before parsing it. Leaving operators such as `%360` unescaped can turn
+	// valid JavaScript into `60` and fail with "Unexpected number". Encode the
+	// complete payload once; the javascript: URL machinery decodes it once.
+	const output = `javascript:${encodeURIComponent(result.code)}\n`
 
 	if (process.argv.includes('--check')) {
 		if (!fs.existsSync(outputPath) || fs.readFileSync(outputPath, 'utf8') !== output) {

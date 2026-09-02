@@ -1,6 +1,6 @@
 # Talk waveforms
 
-A bookmarklet that lets you see the sound from your microphone and every other participant in Nextcloud Talk, Jitsi Meet, Google Meet, or Microsoft Teams. It helps answer practical questions: can everyone hear the fan beside me, and whose microphone picked up that bark?
+A bookmarklet that lets you see the sound from your microphone and other participants in Nextcloud Talk, Jitsi Meet, Google Meet, Microsoft Teams, WhatsApp, and other browser calls. It helps answer practical questions: can everyone hear the fan beside me, and whose microphone picked up that bark?
 
 ## Install
 
@@ -21,7 +21,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 
 ## Files
 
-- `talk-waveforms.0.5.0.js` — versioned visualization payload
+- `talk-waveforms.0.5.1.js` — versioned visualization payload
 - `bookmarklet-loader.js` — self-contained minified bookmarklet
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
@@ -30,6 +30,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 - `tests/google-meet.spec.js` — Google Meet participant mapping and live CSP check
 - `tests/microsoft-teams.spec.js` — Teams participant mapping and live Trusted Types check
 - `tests/generic.spec.js` — floating fallback on other sites
+- `tests/whatsapp.spec.js` — real bookmark-URL parsing and late microphone capture on WhatsApp
 - `tests/participant-images/` — Git LFS-backed generated camera feeds
 - `.github/workflows/ci.yml` — fixture, Jitsi, and past/current/future Talk compatibility tests
 
@@ -61,9 +62,10 @@ JITSI_URL=http://127.0.0.1:18000/TalkWaveformsHarness npm run test:jitsi
 
 It joins one observer and two browser participants and verifies that each Jitsi audio track lands exactly once on its named participant tile. To regenerate the 2560×1600 homepage capture, use the same stack and run `npm run test:jitsi:showcase`. The showcase uses four generated video feeds and synthesized, non-overlapping speech turns; Mary Somerville's room also carries a steady fan tone.
 
-The Teams showcase uses the same real payload with four scheduled speech tracks:
+The Google Meet and Teams showcases use the same real payload with four scheduled speech tracks:
 
 ```sh
+npm run test:google:showcase
 npm run test:teams:showcase
 ```
 

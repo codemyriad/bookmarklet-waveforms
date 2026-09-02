@@ -106,14 +106,14 @@ test('maps every Jitsi audio track to its participant tile', async ({ page }, te
 		await page.goto(observerCallUrl, { waitUntil: 'domcontentloaded' })
 		await expect(page.getByTestId('prejoin.screen')).toBeVisible({ timeout: 30_000 })
 		await page.getByPlaceholder('Enter your name').fill('Waveform observer')
-		const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
+		const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 		await page.evaluate(loader)
 		await expect(page.locator('#nctalk-waveform')).toBeAttached({ timeout: 10_000 })
 		expect(await page.evaluate(() => ({
 			version: window.__TALK_WAVEFORMS__?.version,
 			platform: window.__TALK_WAVEFORMS__?.platform,
 			legacyAlias: window.__NCTALK_WAVEFORM__ === window.__TALK_WAVEFORMS__,
-		}))).toEqual({ version: '0.5.0', platform: 'jitsi', legacyAlias: true })
+		}))).toEqual({ version: '0.5.1', platform: 'jitsi', legacyAlias: true })
 		await page.getByTestId('prejoin.joinMeeting').click()
 		await expect(page.getByTestId('prejoin.screen')).toBeHidden({ timeout: 30_000 })
 

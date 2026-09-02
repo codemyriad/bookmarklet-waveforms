@@ -1,7 +1,7 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.5.0'
+	const VERSION = '0.5.1'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const PUBLIC_GLOBAL_KEY = '__TALK_WAVEFORMS__'
 	const HOST_ID = 'nctalk-waveform'
@@ -56,7 +56,8 @@
 	const isGoogleMeetRuntime = location.hostname === 'meet.google.com'
 	const isTeamsRuntime = location.hostname === 'teams.live.com'
 	const isNextcloudRuntime = /\/call\/[^/]+/.test(location.pathname) && Boolean(document.querySelector('#app-content-vue'))
-	const isSupportedRuntime = isJitsiRuntime || isGoogleMeetRuntime || isTeamsRuntime || isNextcloudRuntime
+	const isWhatsAppRuntime = location.hostname === 'web.whatsapp.com' || location.hostname === 'call.whatsapp.com'
+	const usesCardOverlays = isJitsiRuntime || isGoogleMeetRuntime || isTeamsRuntime || isNextcloudRuntime
 	let animationFrame = 0
 	let sampleTimer = 0
 	let scanTimer = 0
@@ -64,6 +65,8 @@
 	let collapsed = false
 	const modifiedCards = new Map()
 	const sourcesByView = new WeakMap()
+	const mediaElementStreams = new WeakMap()
+	const capturedMediaStreams = new Set()
 
 	function hslToRgb(hue, saturation, lightness) {
 		const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
@@ -377,7 +380,7 @@
 	}
 
 	function mountSource(source, element = null, explicitCard = null) {
-		const nextCard = isSupportedRuntime
+		const nextCard = usesCardOverlays
 			? (explicitCard?.isConnected ? explicitCard : participantCardFor(element))
 			: null
 		const previousCard = source.card
@@ -404,12 +407,14 @@
 		reopenCount.textContent = String(sources.size)
 		empty.hidden = sources.size > 0
 		const fallbackCount = [...sources.values()].filter((source) => !source.card?.isConnected).length
-		empty.textContent = isSupportedRuntime
-			? 'No call audio found yet.'
-			: 'No audio streams found on this page.'
+		empty.textContent = isWhatsAppRuntime
+			? 'No call audio found yet. Join the call or try Mic test.'
+			: usesCardOverlays
+				? 'No call audio found yet.'
+				: 'No audio streams found on this page.'
 		lanes.hidden = fallbackCount === 0
 		body.hidden = sources.size > 0 && fallbackCount === 0
-		host.style.display = !isSupportedRuntime || sources.size === 0 || fallbackCount > 0 ? '' : 'none'
+		host.style.display = !usesCardOverlays || sources.size === 0 || fallbackCount > 0 ? '' : 'none'
 		const hasLocalSource = [...sources.values()].some((source) => source.direction === 'local' && source.origin !== 'capture')
 		micButton.disabled = hasLocalSource
 		micButton.title = hasLocalSource ? 'Outgoing call audio is already detected' : 'Direct microphone fallback'
@@ -743,13 +748,46 @@
 		}
 	}
 
+	function directOrCapturedStream(element) {
+		const directStream = element.srcObject
+		if (directStream instanceof MediaStream
+			&& directStream.getAudioTracks().some((track) => track.readyState === 'live')) return directStream
+
+		let capturedStream = mediaElementStreams.get(element)
+		if (!capturedStream
+			&& !element.muted
+			&& element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+			const capture = element.captureStream || element.mozCaptureStream
+			if (typeof capture === 'function') {
+				try {
+					capturedStream = capture.call(element)
+					if (capturedStream instanceof MediaStream) {
+						mediaElementStreams.set(element, capturedStream)
+						capturedMediaStreams.add(capturedStream)
+					}
+				} catch {}
+			}
+		}
+		return capturedStream instanceof MediaStream
+			&& capturedStream.getAudioTracks().some((track) => track.readyState === 'live')
+			? capturedStream
+			: null
+	}
+
+	function knownStreamForElement(element) {
+		const directStream = element.srcObject
+		if (directStream instanceof MediaStream
+			&& directStream.getAudioTracks().some((track) => track.readyState === 'live')) return directStream
+		return mediaElementStreams.get(element) || null
+	}
+
 	function scan() {
 		if (destroyed) return
 		scanJitsiTracks()
 		const seenElements = new Set()
 		for (const element of document.querySelectorAll('audio, video')) {
-			const stream = element.srcObject
-			if (!(stream instanceof MediaStream) || !stream.getAudioTracks().some((track) => track.readyState === 'live')) continue
+			const stream = directOrCapturedStream(element)
+			if (!stream) continue
 			const direction = isLocalMediaElement(element) ? 'local' : 'remote'
 			associateDomTrack(stream, direction)
 			seenElements.add(element)
@@ -763,7 +801,8 @@
 
 		for (const [key, source] of sources) {
 			for (const element of source.elements) {
-				if (!element.isConnected || !(element.srcObject instanceof MediaStream) || trackKey(element.srcObject) !== key) source.elements.delete(element)
+				const elementStream = knownStreamForElement(element)
+				if (!element.isConnected || !elementStream || trackKey(elementStream) !== key) source.elements.delete(element)
 			}
 			if (!source.card?.isConnected) {
 				const connectedElement = [...source.elements].find((element) => element.isConnected)
@@ -1113,6 +1152,26 @@
 
 	const mediaDevices = navigator.mediaDevices
 	const originalGetUserMedia = mediaDevices?.getUserMedia
+	let wrappedGetUserMedia = null
+
+	if (originalGetUserMedia) {
+		wrappedGetUserMedia = function (...args) {
+			const result = originalGetUserMedia.apply(this, args)
+			return Promise.resolve(result).then((stream) => {
+				if (!destroyed && stream instanceof MediaStream
+					&& stream.getAudioTracks().some((track) => track.readyState === 'live')) {
+					addStream(stream, {
+						label: 'You',
+						direction: 'local',
+						origin: 'get-user-media',
+						persistent: true,
+					})
+				}
+				return stream
+			})
+		}
+		try { mediaDevices.getUserMedia = wrappedGetUserMedia } catch {}
+	}
 
 	micButton.addEventListener('click', async () => {
 		if (!originalGetUserMedia) return
@@ -1197,6 +1256,7 @@
 		resizeObserver.disconnect()
 		visibilityObserver.disconnect()
 		for (const stream of ownedStreams) stream.getTracks().forEach((track) => track.stop())
+		for (const stream of capturedMediaStreams) stream.getTracks().forEach((track) => track.stop())
 		for (const source of sources.values()) {
 			try { source.node.disconnect() } catch {}
 			source.viewHost.remove()
@@ -1223,6 +1283,9 @@
 		}
 		if (senderPrototype?.replaceTrack === wrappedReplaceTrack) {
 			try { senderPrototype.replaceTrack = originalReplaceTrack } catch {}
+		}
+		if (mediaDevices?.getUserMedia === wrappedGetUserMedia) {
+			try { mediaDevices.getUserMedia = originalGetUserMedia } catch {}
 		}
 		sources.clear()
 		for (const [card, originalPosition] of modifiedCards) {
@@ -1259,7 +1322,9 @@
 					? 'microsoft-teams'
 					: isNextcloudRuntime
 						? 'nextcloud-talk'
-						: 'generic',
+						: isWhatsAppRuntime
+							? 'whatsapp'
+							: 'generic',
 		sources,
 		context: audioContext,
 		host,

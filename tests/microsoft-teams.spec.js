@@ -4,7 +4,7 @@ const path = require('node:path')
 
 const fixtureUrl = 'https://teams.live.com/light-meetings/launch?fixture=talk-waveforms'
 const liveUrl = process.env.MICROSOFT_TEAMS_URL
-const bookmarklet = fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').replace(/^javascript:/, '')
+const bookmarklet = decodeURIComponent(fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').trim().replace(/^javascript:/, ''))
 
 test('maps Microsoft Teams media streams without requiring a Trusted Types policy', async ({ page }) => {
 	await page.route(fixtureUrl, (route) => route.fulfill({
@@ -63,7 +63,7 @@ test('maps Microsoft Teams media streams without requiring a Trusted Types polic
 			cardId: source.card?.dataset.cid,
 		})),
 	}))
-	expect(state.version).toBe('0.5.0')
+	expect(state.version).toBe('0.5.1')
 	expect(state.platform).toBe('microsoft-teams')
 	expect(state.sources.map(({ label }) => label).sort()).toEqual(['Cleopatra VII', 'Julius Caesar', 'You'])
 	expect(state.sources.filter(({ direction }) => direction === 'local')).toHaveLength(1)
@@ -100,7 +100,7 @@ test('loads on the supplied Microsoft Teams page', async ({ page }) => {
 		platform: window.__TALK_WAVEFORMS__?.platform,
 		message: window.__TALK_WAVEFORMS__?.host?.shadowRoot?.querySelector('.empty')?.textContent,
 	})), { timeout: 15_000 }).toEqual({
-		version: '0.5.0',
+		version: '0.5.1',
 		platform: 'microsoft-teams',
 		message: 'No call audio found yet.',
 	})

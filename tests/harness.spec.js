@@ -331,7 +331,7 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 
 	try {
 		await page.goto(callUrl, { waitUntil: 'domcontentloaded' })
-		const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
+		const loader = decodeURIComponent(fs.readFileSync(loaderPath, 'utf8').trim().replace(/^javascript:/, ''))
 		let observerHooked = false
 		for (let attempt = 0; attempt < 3 && !observerHooked; attempt++) {
 			if (attempt > 0) await page.reload({ waitUntil: 'domcontentloaded' })
