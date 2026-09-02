@@ -5,7 +5,7 @@ const path = require('node:path')
 const fixtureUrl = 'https://web.whatsapp.com/call/video/test/'
 const bookmarkletUrl = fs.readFileSync(path.join(__dirname, '..', 'bookmarklet-loader.js'), 'utf8').trim()
 
-test('executes as a real bookmark URL and captures a later WhatsApp microphone', async ({ page }) => {
+test('executes as a real bookmark URL on a synthetic WhatsApp-origin page', async ({ page }) => {
 	const dialogs = []
 	const pageErrors = []
 	page.on('dialog', async (dialog) => {

@@ -27,10 +27,10 @@ It analyzes each call's existing audio without opening the microphone again. On 
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
 - `tests/harness.spec.js` — multi-browser Nextcloud Talk integration test
 - `tests/jitsi-harness.spec.js` — multi-browser Jitsi integration test and showcase capture
-- `tests/google-meet.spec.js` — Google Meet participant mapping and live CSP check
-- `tests/microsoft-teams.spec.js` — Teams participant mapping and live Trusted Types check
+- `tests/google-meet.spec.js` — Google Meet-origin fixture and optional live check
+- `tests/microsoft-teams.spec.js` — Teams-origin fixture and optional live check
 - `tests/generic.spec.js` — floating fallback on other sites
-- `tests/whatsapp.spec.js` — real bookmark-URL parsing and late microphone capture on WhatsApp
+- `tests/whatsapp.spec.js` — real bookmark-URL parsing on a synthetic WhatsApp-origin fixture
 - `tests/participant-images/` — Git LFS-backed generated camera feeds
 - `.github/workflows/ci.yml` — fixture, Jitsi, and past/current/future Talk compatibility tests
 
@@ -43,7 +43,7 @@ npm install
 npm run test:fixture
 ```
 
-The fixture verifies loader behavior under a strict nonce-based CSP, local-track deduplication, remote-track separation, participant-card placement, all four modes, persistent history, collapse/reopen behavior, click isolation, cleanup, and hook restoration.
+The fixture verifies loader behavior under strict CSP and Trusted Types policies, local-track deduplication, remote-track separation, participant-card placement, all four modes, persistent history, collapse/reopen behavior, click isolation, cleanup, and hook restoration. Google Meet, Teams, and WhatsApp use synthetic pages routed to their real origins; optional environment variables enable separate live-page checks without storing meeting links or account state.
 
 For the full Nextcloud integration test, start the sibling Gocassini stack:
 
