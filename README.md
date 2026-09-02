@@ -1,10 +1,10 @@
 # Talk waveforms
 
-A bookmarklet that lets you see the sound from your microphone and from every other participant in a Nextcloud Talk or Jitsi Meet call. It helps answer practical questions: can everyone hear the fan beside me, and whose microphone picked up that bark?
+A bookmarklet that lets you see the sound from your microphone and every other participant in Nextcloud Talk, Jitsi Meet, Google Meet, or Microsoft Teams. It helps answer practical questions: can everyone hear the fan beside me, and whose microphone picked up that bark?
 
 ## Install
 
-Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Nextcloud Talk or Jitsi Meet call, then click the bookmark whenever you like—before joining or while the call is already underway.
+Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the bookmarks bar. Open a call. Click the bookmark.
 
 Every participant card gets an independent overlay. Its button cycles through four views:
 
@@ -17,16 +17,19 @@ Each graph can be collapsed and reopened. Spectrogram history continues while an
 
 ## How it works
 
-On Nextcloud Talk, local and remote lanes come from the browser's WebRTC sender and receiver tracks. On Jitsi Meet, they come from Jitsi's participant-tagged media tracks. Both paths analyze the same streams the call uses, without opening the microphone a second time. A DOM media-element scan handles late loading and card association on Talk.
+It analyzes each call's existing audio without opening the microphone again. On other sites, it shows any audio streams it can find in a floating window.
 
 ## Files
 
-- `talk-waveforms.0.4.0.js` — versioned visualization payload
-- `bookmarklet-loader.js` — bookmarklet loader for Nextcloud Talk and Jitsi Meet
+- `talk-waveforms.0.5.0.js` — versioned visualization payload
+- `bookmarklet-loader.js` — self-contained minified bookmarklet
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
 - `tests/harness.spec.js` — multi-browser Nextcloud Talk integration test
 - `tests/jitsi-harness.spec.js` — multi-browser Jitsi integration test and showcase capture
+- `tests/google-meet.spec.js` — Google Meet participant mapping and live CSP check
+- `tests/microsoft-teams.spec.js` — Teams participant mapping and live Trusted Types check
+- `tests/generic.spec.js` — floating fallback on other sites
 - `tests/participant-images/` — Git LFS-backed generated camera feeds
 - `.github/workflows/ci.yml` — fixture, Jitsi, and past/current/future Talk compatibility tests
 
@@ -57,6 +60,12 @@ JITSI_URL=http://127.0.0.1:18000/TalkWaveformsHarness npm run test:jitsi
 ```
 
 It joins one observer and two browser participants and verifies that each Jitsi audio track lands exactly once on its named participant tile. To regenerate the 2560×1600 homepage capture, use the same stack and run `npm run test:jitsi:showcase`. The showcase uses four generated video feeds and synthesized, non-overlapping speech turns; Mary Somerville's room also carries a steady fan tone.
+
+The Teams showcase uses the same real payload with four scheduled speech tracks:
+
+```sh
+npm run test:teams:showcase
+```
 
 ## Deploy
 

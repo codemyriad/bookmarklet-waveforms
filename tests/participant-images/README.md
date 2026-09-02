@@ -23,3 +23,18 @@ showcase. They are deliberately fictional raw camera feeds:
 They use contemporary digital camera perspective and color, not an archival
 or analog-film treatment. Jitsi provides the surrounding interface in the
 final screenshot.
+
+The versioned `0.5.0` set stages a restrained Microsoft Teams conversation
+about Caesar's calendar reform:
+
+- Sosigenes speaks from an Alexandrian study; his sundial is subtly wrong.
+- Julius Caesar listens from a campaign office; a squeezed-in tally mark hints
+  at the leap day.
+- Cleopatra listens by phone from Alexandria; her headphone cable makes a
+  loose serpentine curve.
+- Cicero listens from a crowded study; a thin thirteenth tablet is wedged next
+  to twelve thicker ones.
+
+All four prompts asked for photorealistic 2020s webcam or phone-front-camera
+frames, digital compression and imperfect auto-exposure, historically grounded
+rooms and clothing, no call UI, no readable text, and no analog-film treatment.

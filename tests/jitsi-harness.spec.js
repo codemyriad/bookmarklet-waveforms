@@ -7,8 +7,6 @@ const path = require('node:path')
 const callUrl = process.env.JITSI_URL
 const projectRoot = path.join(__dirname, '..')
 const loaderPath = path.join(projectRoot, 'bookmarklet-loader.js')
-const scriptPath = path.join(projectRoot, 'talk-waveforms.0.4.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.4.0.js'
 const systemChrome = process.env.CHROME_PATH || '/usr/bin/google-chrome'
 const participantExecutablePath = fs.existsSync(systemChrome) ? systemChrome : undefined
 const normalChromeUserAgent = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36'
@@ -104,12 +102,6 @@ test('maps every Jitsi audio track to its participant tile', async ({ page }, te
 	}]))
 	const participantBrowsers = []
 
-	await page.route(new RegExp(`^${hostedScriptUrl.replaceAll('.', '\\.') }\\?_=`), (route) => route.fulfill({
-		status: 200,
-		contentType: 'text/javascript',
-		body: fs.readFileSync(scriptPath, 'utf8'),
-	}))
-
 	try {
 		await page.goto(observerCallUrl, { waitUntil: 'domcontentloaded' })
 		await expect(page.getByTestId('prejoin.screen')).toBeVisible({ timeout: 30_000 })
@@ -121,7 +113,7 @@ test('maps every Jitsi audio track to its participant tile', async ({ page }, te
 			version: window.__TALK_WAVEFORMS__?.version,
 			platform: window.__TALK_WAVEFORMS__?.platform,
 			legacyAlias: window.__NCTALK_WAVEFORM__ === window.__TALK_WAVEFORMS__,
-		}))).toEqual({ version: '0.4.0', platform: 'jitsi', legacyAlias: true })
+		}))).toEqual({ version: '0.5.0', platform: 'jitsi', legacyAlias: true })
 		await page.getByTestId('prejoin.joinMeeting').click()
 		await expect(page.getByTestId('prejoin.screen')).toBeHidden({ timeout: 30_000 })
 

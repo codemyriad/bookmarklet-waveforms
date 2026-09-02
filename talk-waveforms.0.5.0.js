@@ -1,7 +1,7 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.4.0'
+	const VERSION = '0.5.0'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const PUBLIC_GLOBAL_KEY = '__TALK_WAVEFORMS__'
 	const HOST_ID = 'nctalk-waveform'
@@ -22,7 +22,22 @@
 	const AudioContextClass = window.AudioContext || window.webkitAudioContext
 
 	if (!AudioContextClass) {
-		window.alert('Talk waveforms: Web Audio is not supported by this browser.')
+		const notice = document.createElement('div')
+		notice.id = HOST_ID
+		notice.textContent = 'This browser cannot visualize call audio.'
+		Object.assign(notice.style, {
+			position: 'fixed',
+			left: '16px',
+			bottom: '16px',
+			zIndex: '2147483647',
+			padding: '14px 16px',
+			color: '#f5f7fa',
+			background: '#161b22',
+			border: '1px solid rgba(255,255,255,.16)',
+			borderRadius: '11px',
+			font: '14px/1.4 system-ui,sans-serif',
+		})
+		document.documentElement.append(notice)
 		return
 	}
 
@@ -38,6 +53,10 @@
 	const trackKeys = new WeakMap()
 	const defaultMode = 'spectrogram'
 	const isJitsiRuntime = Boolean(window.APP?.store?.getState && window.JitsiMeetJS)
+	const isGoogleMeetRuntime = location.hostname === 'meet.google.com'
+	const isTeamsRuntime = location.hostname === 'teams.live.com'
+	const isNextcloudRuntime = /\/call\/[^/]+/.test(location.pathname) && Boolean(document.querySelector('#app-content-vue'))
+	const isSupportedRuntime = isJitsiRuntime || isGoogleMeetRuntime || isTeamsRuntime || isNextcloudRuntime
 	let animationFrame = 0
 	let sampleTimer = 0
 	let scanTimer = 0
@@ -76,12 +95,11 @@
 
 	const host = document.createElement('div')
 	host.id = HOST_ID
-	host.hidden = true
-	host.style.display = 'none'
-	host.setAttribute('aria-hidden', 'true')
+	host.hidden = false
+	host.setAttribute('aria-live', 'polite')
 	const shadow = host.attachShadow({ mode: 'open' })
-	shadow.innerHTML = `
-		<style>
+	const panelStyles = new CSSStyleSheet()
+	panelStyles.replaceSync(`
 			:host {
 				all: initial;
 				position: fixed;
@@ -170,31 +188,41 @@
 				:host(.collapsed) { width: auto; }
 				.mic { display: none; }
 			}
-		</style>
-		<div class="panel">
-			<div class="header">
-				<span class="title">Talk waveforms</span>
-				<span class="count" aria-label="Audio source count">0</span>
-				<button class="mic" type="button" title="Direct microphone fallback">Mic test</button>
-				<button class="collapse" type="button" title="Collapse" aria-label="Collapse Talk waveforms">&minus;</button>
-			</div>
-			<div class="body">
-				<div class="empty">Waiting for call audio. Visualizations will attach to participant cards.</div>
-				<div class="lanes"></div>
-			</div>
-		</div>
-		<button class="reopen" type="button" hidden aria-label="Reopen Talk waveforms">Talk waveforms <span class="count">0</span></button>`
+	`)
+	shadow.adoptedStyleSheets = [panelStyles]
 
-	const panel = shadow.querySelector('.panel')
-	const header = shadow.querySelector('.header')
-	const count = shadow.querySelector('.panel .count')
-	const body = shadow.querySelector('.body')
-	const empty = shadow.querySelector('.empty')
-	const lanes = shadow.querySelector('.lanes')
-	const micButton = shadow.querySelector('.mic')
-	const collapseButton = shadow.querySelector('.collapse')
-	const reopenButton = shadow.querySelector('.reopen')
-	const reopenCount = reopenButton.querySelector('.count')
+	function uiElement(tagName, className, textContent = '') {
+		const element = document.createElement(tagName)
+		if (className) element.className = className
+		if (textContent) element.textContent = textContent
+		return element
+	}
+
+	const panel = uiElement('div', 'panel')
+	const header = uiElement('div', 'header')
+	const title = uiElement('span', 'title', 'Call audio')
+	const count = uiElement('span', 'count', '0')
+	count.setAttribute('aria-label', 'Audio source count')
+	const micButton = uiElement('button', 'mic', 'Mic test')
+	micButton.type = 'button'
+	micButton.title = 'Direct microphone fallback'
+	const collapseButton = uiElement('button', 'collapse', '−')
+	collapseButton.type = 'button'
+	collapseButton.title = 'Collapse'
+	collapseButton.setAttribute('aria-label', 'Collapse call audio')
+	header.append(title, count, micButton, collapseButton)
+	const body = uiElement('div', 'body')
+	const empty = uiElement('div', 'empty', 'Looking for audio streams…')
+	const lanes = uiElement('div', 'lanes')
+	body.append(empty, lanes)
+	panel.append(header, body)
+	const reopenButton = uiElement('button', 'reopen', 'Call audio ')
+	reopenButton.type = 'button'
+	reopenButton.hidden = true
+	reopenButton.setAttribute('aria-label', 'Reopen call audio')
+	const reopenCount = uiElement('span', 'count', '0')
+	reopenButton.append(reopenCount)
+	shadow.append(panel, reopenButton)
 	const visibilityObserver = new IntersectionObserver((entries) => {
 		for (const entry of entries) {
 			const source = sourcesByView.get(entry.target)
@@ -236,6 +264,29 @@
 	}
 
 	function guessLabel(element, stream) {
+		const meetContainer = element?.closest?.('[data-participant-id],[data-self-name],[data-participant-name]')
+		if (meetContainer) {
+			for (const attribute of ['data-participant-name', 'data-self-name']) {
+				const candidate = cleanText(meetContainer.getAttribute(attribute))
+				if (candidate && candidate.length < 80) return attribute === 'data-self-name' ? 'You' : candidate
+			}
+			for (const candidateElement of meetContainer.querySelectorAll('[data-participant-name],[data-self-name]')) {
+				for (const attribute of ['data-participant-name', 'data-self-name']) {
+					const candidate = cleanText(candidateElement.getAttribute(attribute))
+					if (candidate && candidate.length < 80) return attribute === 'data-self-name' ? 'You' : candidate
+				}
+			}
+		}
+
+		if (isTeamsRuntime) {
+			if (element?.closest?.('[data-tid="prejoin-v2-video-preview-container"],[data-tid="local-video-tile"],[data-tid*="local-video"]')) return 'You'
+			const teamsContainer = element?.closest?.('[data-tid*="participant"],[data-tid*="video-tile"],[data-cid],[data-participant-id]')
+			for (const candidateElement of teamsContainer?.querySelectorAll?.('[data-tid*="display-name"],[data-tid*="participant-name"],[aria-label]') || []) {
+				const candidate = cleanText(candidateElement.getAttribute('aria-label') || candidateElement.textContent)
+				if (candidate && candidate.length < 80 && !/^(more options|mute|unmute|video|audio)$/i.test(candidate)) return candidate
+			}
+		}
+
 		const labelled = cleanText(element?.getAttribute?.('aria-label'))
 		if (labelled && labelled.length < 80) return labelled
 
@@ -269,7 +320,18 @@
 	}
 
 	function participantCardFor(element) {
+		if (isTeamsRuntime) {
+			return element?.closest?.([
+				'[data-tid="prejoin-v2-video-preview-container"]',
+				'[data-tid*="participant-tile"]',
+				'[data-tid*="video-tile"]',
+				'[data-cid][role="listitem"]',
+			].join(',')) || null
+		}
 		return element?.closest?.([
+			'[data-participant-id]',
+			'[data-self-name]',
+			'[data-participant-name]',
 			'.video-container',
 			'.localVideoContainer',
 			'.videocontainer',
@@ -285,6 +347,8 @@
 	}
 
 	function isLocalMediaElement(element) {
+		if (isTeamsRuntime && element.closest?.('[data-tid="prejoin-v2-video-preview-container"],[data-tid="local-video-tile"],[data-tid*="local-video"]')) return true
+		if (element.closest?.('[data-self-name]')) return true
 		if (element.closest?.('.localVideoContainer, #localVideoContainer, [class*="local-video"], [class*="localVideo"]')) return true
 		if (element.closest?.('.video-container, [class*="participant"], [class*="remote-video"], [class*="remoteVideo"]')) return false
 		return element.muted
@@ -313,7 +377,9 @@
 	}
 
 	function mountSource(source, element = null, explicitCard = null) {
-		const nextCard = explicitCard?.isConnected ? explicitCard : participantCardFor(element)
+		const nextCard = isSupportedRuntime
+			? (explicitCard?.isConnected ? explicitCard : participantCardFor(element))
+			: null
 		const previousCard = source.card
 		if (nextCard) {
 			if (!modifiedCards.has(nextCard) && getComputedStyle(nextCard).position === 'static') {
@@ -338,8 +404,12 @@
 		reopenCount.textContent = String(sources.size)
 		empty.hidden = sources.size > 0
 		const fallbackCount = [...sources.values()].filter((source) => !source.card?.isConnected).length
+		empty.textContent = isSupportedRuntime
+			? 'No call audio found yet.'
+			: 'No audio streams found on this page.'
 		lanes.hidden = fallbackCount === 0
 		body.hidden = sources.size > 0 && fallbackCount === 0
+		host.style.display = !isSupportedRuntime || sources.size === 0 || fallbackCount > 0 ? '' : 'none'
 		const hasLocalSource = [...sources.values()].some((source) => source.direction === 'local' && source.origin !== 'capture')
 		micButton.disabled = hasLocalSource
 		micButton.title = hasLocalSource ? 'Outgoing call audio is already detected' : 'Direct microphone fallback'
@@ -364,8 +434,8 @@
 		viewHost.dataset.collapsed = 'false'
 		viewHost.setAttribute('role', 'group')
 		const viewShadow = viewHost.attachShadow({ mode: 'open' })
-		viewShadow.innerHTML = `
-			<style>
+		const viewStyles = new CSSStyleSheet()
+		viewStyles.replaceSync(`
 				:host {
 					all: initial;
 					display: block;
@@ -463,23 +533,32 @@
 				:host([data-collapsed="true"]) .view { display: none; }
 				:host([data-collapsed="true"]) .reopen { display: block; }
 				.level { position: absolute; inset: auto 0 0; height: 3px; background: linear-gradient(90deg, #4ade80, #facc15, #fb7185); transform: scaleX(0); transform-origin: left; }
-			</style>
-			<div class="view">
-				<canvas></canvas>
-				<div class="identity"><span class="label"></span></div>
-				<button class="mode" type="button"></button>
-				<button class="collapse" type="button" title="Collapse audio visualization" aria-label="Collapse audio visualization">&minus;</button>
-				<div class="level"></div>
-			</div>
-			<button class="reopen" type="button">Show audio</button>`
+		`)
+		viewShadow.adoptedStyleSheets = [viewStyles]
+		const view = uiElement('div', 'view')
+		const canvas = document.createElement('canvas')
+		const identity = uiElement('div', 'identity')
+		const labelElement = uiElement('span', 'label')
+		identity.append(labelElement)
+		const modeButton = uiElement('button', 'mode')
+		modeButton.type = 'button'
+		const sourceCollapseButton = uiElement('button', 'collapse', '−')
+		sourceCollapseButton.type = 'button'
+		sourceCollapseButton.title = 'Collapse audio visualization'
+		sourceCollapseButton.setAttribute('aria-label', 'Collapse audio visualization')
+		const level = uiElement('div', 'level')
+		view.append(canvas, identity, modeButton, sourceCollapseButton, level)
+		const sourceReopenButton = uiElement('button', 'reopen', 'Show audio')
+		sourceReopenButton.type = 'button'
+		viewShadow.append(view, sourceReopenButton)
 		source.viewHost = viewHost
 		source.viewShadow = viewShadow
-		source.labelElement = viewShadow.querySelector('.label')
-		source.modeButton = viewShadow.querySelector('.mode')
-		source.collapseButton = viewShadow.querySelector('.collapse')
-		source.reopenButton = viewShadow.querySelector('.reopen')
-		source.canvas = viewShadow.querySelector('canvas')
-		source.level = viewShadow.querySelector('.level')
+		source.labelElement = labelElement
+		source.modeButton = modeButton
+		source.collapseButton = sourceCollapseButton
+		source.reopenButton = sourceReopenButton
+		source.canvas = canvas
+		source.level = level
 		source.modeButton.addEventListener('click', async () => {
 			await resumeAudio()
 			source.mode = MODES[(MODES.indexOf(source.mode) + 1) % MODES.length]
@@ -693,6 +772,7 @@
 			const live = source.stream.getAudioTracks().some((track) => track.readyState === 'live')
 			if (!live || (!source.owned && !source.persistent && source.elements.size === 0 && seenElements.size > 0)) removeSource(key)
 		}
+		updateEmptyState()
 	}
 
 	function sizeCanvas(canvas) {
@@ -1049,7 +1129,10 @@
 				origin: 'capture',
 			})
 		} catch (error) {
-			window.alert(`Talk waveforms microphone failed: ${error.message}`)
+			empty.textContent = `Microphone unavailable: ${error.message}`
+			empty.hidden = false
+			body.hidden = false
+			host.style.display = ''
 		} finally {
 			micButton.disabled = false
 		}
@@ -1168,7 +1251,15 @@
 
 	const publicApi = {
 		version: VERSION,
-		platform: isJitsiRuntime ? 'jitsi' : 'nextcloud-talk',
+		platform: isJitsiRuntime
+			? 'jitsi'
+			: isGoogleMeetRuntime
+				? 'google-meet'
+				: isTeamsRuntime
+					? 'microsoft-teams'
+					: isNextcloudRuntime
+						? 'nextcloud-talk'
+						: 'generic',
 		sources,
 		context: audioContext,
 		host,

@@ -4,23 +4,10 @@ const path = require('node:path')
 
 const targetUrl = process.env.TALK_URL || 'https://cloud.codemyriad.io/call/erwcr27x'
 const loaderPath = path.join(__dirname, '..', 'bookmarklet-loader.js')
-const scriptPath = path.join(__dirname, '..', 'talk-waveforms.0.4.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.4.0.js'
 
 test('loads through the real Nextcloud CSP and analyses a Talk media stream', async ({ page }, testInfo) => {
 	const browserErrors = []
-	let hostedResponse = null
 	page.on('pageerror', (error) => browserErrors.push(error.message))
-	page.on('response', (response) => {
-		if (response.url().startsWith(hostedScriptUrl)) hostedResponse = response
-	})
-	if (process.env.LOCAL_ASSET === '1') {
-		await page.route(`${hostedScriptUrl}?_*`, (route) => route.fulfill({
-			status: 200,
-			contentType: 'text/javascript',
-			body: fs.readFileSync(scriptPath, 'utf8'),
-		}))
-	}
 
 	await page.goto(targetUrl, { waitUntil: 'domcontentloaded' })
 	await expect(page.locator('#app-content-vue')).toBeAttached({ timeout: 20_000 })
@@ -34,9 +21,8 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 	const loader = fs.readFileSync(loaderPath, 'utf8').replace(/^javascript:/, '')
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
-	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.4.0')
+	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.version)).toBe('0.5.0')
 	await expect.poll(() => page.evaluate(() => window.__NCTALK_WAVEFORM__?.mode)).toBe('spectrogram')
-	expect(hostedResponse?.status()).toBe(200)
 
 	await page.evaluate(async () => {
 		const context = new AudioContext()

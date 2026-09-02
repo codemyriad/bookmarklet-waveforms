@@ -9,8 +9,6 @@ const projectRoot = path.join(__dirname, '..')
 const gocassiniRoot = path.resolve(projectRoot, '..', 'gocassini')
 const speechFixture = path.join(gocassiniRoot, 'harness', 'media', 'parakeet-smoke.mkv')
 const loaderPath = path.join(projectRoot, 'bookmarklet-loader.js')
-const scriptPath = path.join(projectRoot, 'talk-waveforms.0.4.0.js')
-const hostedScriptUrl = 'https://silvio-talk-waveforms.pgs.sh/talk-waveforms.0.4.0.js'
 const participantImageDirectory = path.resolve(process.env.HARNESS_PARTICIPANT_IMAGES_DIR || path.join(projectRoot, 'tests', 'participant-images'))
 const regularParticipantSpecs = [
 	{ name: 'Hypatia', slug: 'hypatia' },
@@ -330,12 +328,6 @@ test('separates every Gocassini participant at the WebRTC receiver boundary', as
 			buildConversationHistory(participantAudio.get(participant.slug)),
 		]))
 		: {}
-
-	await page.route(`${hostedScriptUrl}?_*`, (route) => route.fulfill({
-		status: 200,
-		contentType: 'text/javascript',
-		body: fs.readFileSync(scriptPath, 'utf8'),
-	}))
 
 	try {
 		await page.goto(callUrl, { waitUntil: 'domcontentloaded' })
