@@ -1,7 +1,7 @@
 (() => {
 	'use strict'
 
-	const VERSION = '0.5.1'
+	const VERSION = '0.5.2'
 	const GLOBAL_KEY = '__NCTALK_WAVEFORM__'
 	const PUBLIC_GLOBAL_KEY = '__TALK_WAVEFORMS__'
 	const HOST_ID = 'nctalk-waveform'
@@ -754,7 +754,8 @@
 			&& directStream.getAudioTracks().some((track) => track.readyState === 'live')) return directStream
 
 		let capturedStream = mediaElementStreams.get(element)
-		if (!capturedStream
+		if (!usesCardOverlays
+			&& !capturedStream
 			&& !element.muted
 			&& element.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
 			const capture = element.captureStream || element.mozCaptureStream
@@ -1154,7 +1155,7 @@
 	const originalGetUserMedia = mediaDevices?.getUserMedia
 	let wrappedGetUserMedia = null
 
-	if (originalGetUserMedia) {
+	if (originalGetUserMedia && !usesCardOverlays) {
 		wrappedGetUserMedia = function (...args) {
 			const result = originalGetUserMedia.apply(this, args)
 			return Promise.resolve(result).then((stream) => {

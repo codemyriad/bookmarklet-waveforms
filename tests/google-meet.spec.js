@@ -30,6 +30,8 @@ test('maps already-rendered Google Meet streams to participant tiles', async ({ 
 	await page.evaluate(() => {
 		const context = new AudioContext()
 		const fixtures = []
+		window.__GOOGLE_MEET_NATIVE_GUM__ = navigator.mediaDevices.getUserMedia
+		window.__GOOGLE_MEET_CAPTURE_CALLS__ = 0
 		for (const [index, name] of ['Ada Lovelace', 'Alan Turing', 'Silvio'].entries()) {
 			const oscillator = context.createOscillator()
 			const gain = context.createGain()
@@ -52,12 +54,23 @@ test('maps already-rendered Google Meet streams to participant tiles', async ({ 
 			document.querySelector('#meet-fixture').append(card)
 			fixtures.push({ oscillator, stream: destination.stream })
 		}
+		const internalVideo = document.createElement('video')
+		Object.defineProperty(internalVideo, 'readyState', { configurable: true, get: () => HTMLMediaElement.HAVE_ENOUGH_DATA })
+		internalVideo.captureStream = () => {
+			window.__GOOGLE_MEET_CAPTURE_CALLS__++
+			return new MediaStream()
+		}
+		document.body.append(internalVideo)
 		window.__GOOGLE_MEET_FIXTURES__ = { context, fixtures }
 	})
 
 	await page.evaluate(loader)
 	await expect(page.locator('#nctalk-waveform')).toBeAttached()
 	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__?.sources?.size)).toBe(3)
+	expect(await page.evaluate(() => ({
+		getUserMediaUnchanged: navigator.mediaDevices.getUserMedia === window.__GOOGLE_MEET_NATIVE_GUM__,
+		captureCalls: window.__GOOGLE_MEET_CAPTURE_CALLS__,
+	}))).toEqual({ getUserMediaUnchanged: true, captureCalls: 0 })
 
 	const state = await page.evaluate(() => ({
 		version: window.__TALK_WAVEFORMS__.version,
@@ -71,7 +84,7 @@ test('maps already-rendered Google Meet streams to participant tiles', async ({ 
 			trackCount: source.stream.getAudioTracks().length,
 		})),
 	}))
-	expect(state.version).toBe('0.5.1')
+	expect(state.version).toBe('0.5.2')
 	expect(state.platform).toBe('google-meet')
 	expect(state.sources.map(({ label }) => label).sort()).toEqual(['Ada Lovelace', 'Alan Turing', 'You'])
 	for (const source of state.sources) {
@@ -120,6 +133,6 @@ test('loads on the supplied Google Meet page', async ({ page }) => {
 	await expect.poll(() => page.evaluate(() => ({
 		version: window.__TALK_WAVEFORMS__?.version,
 		platform: window.__TALK_WAVEFORMS__?.platform,
-	})), { timeout: 15_000 }).toEqual({ version: '0.5.1', platform: 'google-meet' })
+	})), { timeout: 15_000 }).toEqual({ version: '0.5.2', platform: 'google-meet' })
 	expect(dialogs).toEqual([])
 })

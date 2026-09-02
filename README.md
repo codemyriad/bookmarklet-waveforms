@@ -21,7 +21,7 @@ It analyzes each call's existing audio without opening the microphone again. On 
 
 ## Files
 
-- `talk-waveforms.0.5.1.js` — versioned visualization payload
+- `talk-waveforms.0.5.2.js` — versioned visualization payload
 - `bookmarklet-loader.js` — self-contained minified bookmarklet
 - `site/` — installation homepage and generated harness screenshots
 - `tests/smoke.spec.js` — strict-CSP fixture and WebRTC sender/receiver loopback test
