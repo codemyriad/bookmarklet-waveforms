@@ -4,7 +4,7 @@ A bookmarklet that lets you see the sound from your microphone and from every ot
 
 ## Install
 
-Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Nextcloud Talk or Jitsi Meet call, then click the bookmark. Loading it before joining gives the most reliable participant separation.
+Open [silvio-talk-waveforms.pgs.sh](https://silvio-talk-waveforms.pgs.sh/) and drag **🌊 Talk** to the browser's bookmarks bar. Open a Nextcloud Talk or Jitsi Meet call, then click the bookmark whenever you like—before joining or while the call is already underway.
 
 Every participant card gets an independent overlay. Its button cycles through four views:
 

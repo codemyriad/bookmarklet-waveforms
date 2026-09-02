@@ -18,6 +18,7 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
 	await expect(page.getByRole('heading', { name: 'How it looks like' })).toBeVisible()
+	await expect(page.locator('.instructions li').nth(2)).toHaveText('Open a Nextcloud Talk or Jitsi Meet call and click the bookmark whenever you like—before joining or while the call is already underway.')
 	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['Ctrl', '⇧', 'B'])
 
 	const keyboardGuide = page.locator('#keyboard-help-dialog')
