@@ -64,6 +64,8 @@ The interesting part is getting hold of the audio streams without opening the mi
 
 **Jitsi's Redux store.** Jitsi is special. It replaces the raw receiver track with a participant specific playback track, so the peer connection hooks would show every person twice. Instead the bookmarklet reads `window.APP.store` directly: `features/base/tracks` has the tracks, `features/base/participants` has the names, and the two are joined by participant id. The WebRTC hooks are not installed on Jitsi at all.
 
+**The page's own audio graph.** Some apps never hand the browser a media stream. On WhatsApp Web, as observed on a live call in September 2026, the peer connections carry only data channels, no remote audio track is ever exposed, the incoming audio is decoded in JavaScript and played through an AudioWorklet, and there is no `<audio>` element to find. On pages without a participant grid the bookmarklet therefore also wraps `AudioNode.prototype.connect`: whatever a page connects to an `AudioDestinationNode` gets tapped into one "Page audio" lane per `AudioContext` (an analyser created in the page's own context, so nothing is re-routed). And `createMediaStreamSource()` is wrapped too, so a microphone stream the page feeds into Web Audio becomes the "You" lane, deduplicated against the `getUserMedia` wrapper by track identity. This only works when the bookmark is clicked before the call starts: a context and its nodes that already exist cannot be enumerated afterwards.
+
 Everything funnels into one function, `addStream()`. Its job is deduplication: a lane is keyed by the identity of its `MediaStreamTrack` objects (held in a `WeakMap`, so no track is kept alive), and the same track seen first on a `<video>` and later on a receiver gets merged into one lane rather than two. Labels have a quality score, so a real name from the DOM beats "Participant 3" from the fallback, and a sender track can always assert "You".
 
 On generic pages there is also a `getUserMedia` wrapper (to catch the local mic when the app opens it) and a **Mic test** button that opens the microphone directly. Inside a supported call app neither is needed, and the button is disabled once outgoing audio is detected, because a second `getUserMedia` on the same device would only confuse people.
@@ -123,7 +125,7 @@ The overlay images in this README come from `tests/readme-captures.spec.js`. It 
 
 The homepage is translated (English, Italian, German, Spanish, French, Portuguese) from `site/translations.<version>.js`, picked from the browser's primary language, with `?lang=xx` as an override. The homepage test checks that every language defines the same keys as English.
 
-The homepage's test clip (two synthesized voices over a 120 Hz hum, with its own waveform as the picture) comes from `npm run build:demo-clip`, which writes an MP4 and a WebM into `site/assets/`. The homepage test plays it and checks that the bookmarklet picks it up as a source.
+The homepage's demo clip (Tom Lehrer's *The Elements*, with a synchronized karaoke player from Cassini Format) comes from `npm run build:demo-clip`, which prepares an Opus file and an MP4 into `site/assets/`. The homepage test plays it and checks that the bookmarklet picks it up as a source.
 
 The homepage screenshots are produced by the same harnesses (`npm run test:jitsi:showcase`, `test:google:showcase`, `test:teams:showcase`, `test:showcase`), with four generated participants, synthesized non overlapping speech turns and, for one of them, a steady fan tone. The fan is the whole point of the project, so it seemed fair to give it a seat.
 
@@ -133,6 +135,6 @@ The homepage screenshots are produced by the same harnesses (`npm run test:jitsi
 
 It does not measure loudness in any calibrated sense. The level bar is RMS of whatever the browser hands over after the app's own processing (echo cancellation, noise suppression, gain control), which is what the other side hears, not what your microphone picks up. That is arguably the more useful of the two, but it is worth knowing.
 
-It cannot see audio that never reaches the page as a `MediaStream`. WhatsApp Web hands very little to the DOM, so there the floating panel often only has the Mic test to offer. If you know of a hook that is missing, please open an issue.
+On pages that decode audio themselves (WhatsApp Web), it has to be running before the call starts; clicked mid-call it finds nothing, because existing audio graphs cannot be enumerated. If you know of a hook that is missing, please open an issue.
 
 Made by [Code Myriad](https://codemyriad.io/).

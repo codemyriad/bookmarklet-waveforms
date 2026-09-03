@@ -142,3 +142,61 @@ test('Mic test toggles one owned microphone visualization', async ({ page }) => 
 	await micButton.click()
 	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size)).toBe(0)
 })
+
+test('taps audio a page plays through its own AudioContext, and streams it feeds into Web Audio', async ({ page }) => {
+	await page.route(fixtureUrl, (route) => route.fulfill({
+		status: 200,
+		contentType: 'text/html',
+		body: '<!doctype html><html><head><meta charset="utf-8"><title>Worklet call</title></head><body><main>A call that decodes audio itself</main></body></html>',
+	}))
+	await page.goto(fixtureUrl)
+	await page.evaluate(bookmarklet)
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size)).toBe(0)
+
+	await page.evaluate(async () => {
+		// Playback the way WhatsApp Web does it: a node graph into the destination, no MediaStream anywhere.
+		const playback = new AudioContext()
+		await playback.resume()
+		const oscillator = playback.createOscillator()
+		const gain = playback.createGain()
+		gain.gain.value = 0.3
+		oscillator.frequency.value = 330
+		oscillator.connect(gain).connect(playback.destination)
+		oscillator.start()
+		// Capture the way WhatsApp Web does it: a stream fed into a Web Audio source node.
+		const capture = new AudioContext()
+		await capture.resume()
+		const micTone = capture.createOscillator()
+		const micDestination = capture.createMediaStreamDestination()
+		micTone.connect(micDestination)
+		micTone.start()
+		const micSource = capture.createMediaStreamSource(micDestination.stream)
+		const sink = capture.createGain()
+		sink.gain.value = 0
+		micSource.connect(sink)
+		window.__GRAPH_FIXTURE__ = { playback, capture, oscillator, micTone }
+	})
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__TALK_WAVEFORMS__.sources.values()].map((source) => `${source.origin}/${source.direction}/${source.label}`).sort()
+	))).toEqual(['audio-graph/remote/Page audio', 'audio-graph/remote/Participant 1'])
+	await expect.poll(() => page.evaluate(() => (
+		[...window.__TALK_WAVEFORMS__.sources.values()].find((source) => source.label === 'Page audio')?.lastLevel || 0
+	)), { timeout: 10_000 }).toBeGreaterThan(0.05)
+	expect(await page.evaluate(() => {
+		const host = document.querySelector('#nctalk-waveform')
+		return { visible: host.style.display !== 'none', count: host.shadowRoot.querySelector('.count').textContent }
+	})).toEqual({ visible: true, count: '2' })
+
+	// Closing the page's context removes its lane; destroy restores the prototypes.
+	await page.evaluate(() => window.__GRAPH_FIXTURE__.playback.close())
+	await expect.poll(() => page.evaluate(() => [...window.__TALK_WAVEFORMS__.sources.values()].some((source) => source.label === 'Page audio'))).toBe(false)
+	const restored = await page.evaluate(() => {
+		const before = { connect: AudioNode.prototype.connect, create: AudioContext.prototype.createMediaStreamSource }
+		window.__TALK_WAVEFORMS__.destroy()
+		return {
+			wrappedBefore: !/native code/.test(String(before.connect)) && !/native code/.test(String(before.create)),
+			nativeAfter: /native code/.test(String(AudioNode.prototype.connect)) && /native code/.test(String(AudioContext.prototype.createMediaStreamSource)),
+		}
+	})
+	expect(restored).toEqual({ wrappedBefore: true, nativeAfter: true })
+})

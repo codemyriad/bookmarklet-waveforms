@@ -36,8 +36,8 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(page.locator('#install-steps li').nth(1)).toContainText('Drag 🌊 Talk onto the bar.')
 
 	const demoClip = page.locator('#demo-clip')
-	await expect(demoClip.locator('source').first()).toHaveAttribute('src', '/assets/demo-call.0.5.4.mp4')
-	await expect(demoClip.locator('source').nth(1)).toHaveAttribute('src', '/assets/demo-call.0.5.4.webm')
+	await expect(demoClip.locator('source').first()).toHaveAttribute('src', '/assets/elements.0.5.4.opus')
+	await expect(demoClip.locator('source').nth(1)).toHaveAttribute('src', '/assets/elements.0.5.4.mp4')
 	await expect(page.locator('#try-status')).toHaveText('A graph of the sound appears in the bottom-left corner of this page. Click the bookmark again to close it.')
 
 	const keyboardGuide = page.locator('#keyboard-help-dialog')
@@ -92,12 +92,49 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(nextcloudShowcase).toHaveJSProperty('complete', true)
 	await expect(nextcloudShowcase).toHaveJSProperty('naturalWidth', 2560)
 	await expect(nextcloudShowcase).toHaveJSProperty('naturalHeight', 1600)
-	await expect(page.locator('.showcase figcaption')).toHaveText([
-		'Four participants · three views',
-		'The Analytical Engine · four microphones',
-		'Calendar reform · four microphones',
-		'One graph per microphone',
+	await expect(page.locator('.showcase .slide-caption')).toHaveText([
+		'One graph per tile. The steady line under Mary Somerville’s spectrogram is her fan.',
+		'Pick a view per tile: level history, waveform, spectrogram. Ada Lovelace is speaking, Michael Faraday just finished.',
+		'Spectrograms keep the last 15 seconds: Cicero spoke a moment ago, Sosigenes is speaking now.',
+		'Henri Poincaré’s waveform moves live, Marie Curie’s level history holds her last words.',
 	])
+
+	// The carousel: buttons, dots, arrow keys and the announced position agree,
+	// and any manual navigation ends the slideshow.
+	const carousel = page.locator('#showcase-carousel')
+	await expect(carousel).toHaveAttribute('aria-roledescription', 'carousel')
+	await expect(page.locator('#carousel-play')).toHaveAttribute('aria-label', 'Pause the slideshow')
+	await page.locator('#carousel-dots button').first().click() // the image checks above scrolled the strip
+	await expect(page.locator('#carousel-play')).toHaveAttribute('aria-label', 'Resume the slideshow')
+	await expect(page.locator('.slide').first()).toHaveAttribute('aria-label', 'Screenshot 1 of 4: Jitsi Meet')
+	await expect(page.locator('.slide').first()).toHaveClass(/is-current/)
+	await expect(page.locator('#carousel-dots button')).toHaveCount(4)
+	await expect(page.locator('#carousel-dots button').first()).toHaveAttribute('aria-current', 'true')
+	await expect(page.locator('#carousel-dots button').nth(2)).toHaveAttribute('aria-label', 'Show screenshot 3: Microsoft Teams')
+	await expect(page.locator('#carousel-status')).toHaveText('1 / 4')
+	await expect(page.locator('#carousel-status')).toHaveAttribute('aria-live', 'polite')
+	await page.locator('#carousel-next').click()
+	await expect(page.locator('#carousel-status')).toHaveText('2 / 4')
+	await expect(page.locator('#carousel-dots button').nth(1)).toHaveAttribute('aria-current', 'true')
+	await expect.poll(() => page.locator('#carousel-track').evaluate((track) => {
+		const slide = track.querySelectorAll('.slide')[1]
+		return Math.abs(slide.offsetLeft + slide.clientWidth / 2 - (track.scrollLeft + track.clientWidth / 2))
+	})).toBeLessThan(3)
+	await page.locator('#carousel-dots button').nth(3).click()
+	await expect(page.locator('#carousel-status')).toHaveText('4 / 4')
+	await page.locator('#carousel-next').click()
+	await expect(page.locator('#carousel-status')).toHaveText('1 / 4')
+	await page.locator('#carousel-previous').click()
+	await expect(page.locator('#carousel-status')).toHaveText('4 / 4')
+	await page.getByRole('heading', { level: 1 }).click() // focus somewhere neutral: the arrows work page-wide
+	await page.keyboard.press('ArrowLeft')
+	await expect(page.locator('#carousel-status')).toHaveText('3 / 4')
+	await page.keyboard.press('ArrowRight')
+	await expect(page.locator('#carousel-status')).toHaveText('4 / 4')
+	await page.locator('#carousel-track').focus()
+	await page.keyboard.press('Home')
+	await expect(page.locator('#carousel-status')).toHaveText('1 / 4')
+
 	const bookmarklet = page.locator('#bookmarklet')
 	await expect(bookmarklet).toHaveClass(/ready/)
 	await expect(bookmarklet).toHaveAttribute('draggable', 'true')
@@ -280,7 +317,9 @@ for (const languageCase of languageCases) {
 		await expect(page.locator('#copy-bookmarklet')).toHaveText(strings.copyIt)
 		await expect(page.locator('#try-status')).toHaveText(strings.tryIdle)
 		await expect(page.locator('.platform-note strong')).toHaveText(strings.callNote.match(/<strong>(.*?)<\/strong>/)[1])
-		await expect(page.locator('.showcase figcaption').first()).toHaveText(strings.jitsiCaption)
+		await expect(page.locator('.showcase .slide-caption').first()).toHaveText(strings.jitsiCaption)
+		await expect(page.locator('#carousel-next')).toHaveAttribute('aria-label', strings.carouselNext)
+		await expect(page.locator('.slide').nth(1)).toHaveAttribute('aria-label', strings.carouselSlide.replace('{index}', '2').replace('{total}', '4').replace('{platform}', 'Google Meet'))
 		await expect(page.locator('.showcase img').first()).toHaveAttribute('alt', strings.jitsiAlt)
 		await expect(page.locator('#status')).toHaveText(strings.statusDesktop)
 		await expect(page.locator('.site-footer a').first()).toHaveText(strings.madeBy)
@@ -303,4 +342,32 @@ test('honours ?lang= over the browser language', async ({ page }) => {
 	navigationUrl.searchParams.set('lang', 'it')
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText(translations.it.title)
+})
+
+test('the slideshow advances slowly on its own and stops under reduced motion', async ({ browser }) => {
+	test.setTimeout(60_000)
+	const context = await browser.newContext()
+	const page = await context.newPage()
+	const navigationUrl = new URL(homepageUrl)
+	navigationUrl.searchParams.set('_', Date.now())
+	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(page.locator('#carousel-status')).toHaveText('1 / 4')
+	await expect(page.locator('#carousel-play')).toHaveAttribute('aria-label', 'Pause the slideshow')
+	await expect(page.locator('#carousel-status')).toHaveAttribute('aria-live', 'off')
+	await page.waitForTimeout(4_000)
+	await expect(page.locator('#carousel-status')).toHaveText('1 / 4')
+	await expect(page.locator('#carousel-status')).toHaveText('2 / 4', { timeout: 5_000 })
+	await page.locator('#carousel-play').click()
+	await expect(page.locator('#carousel-play')).toHaveAttribute('aria-label', 'Resume the slideshow')
+	await page.waitForTimeout(7_000)
+	await expect(page.locator('#carousel-status')).toHaveText('2 / 4')
+	await context.close()
+
+	const still = await browser.newContext({ reducedMotion: 'reduce' })
+	const stillPage = await still.newPage()
+	await stillPage.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(stillPage.locator('#carousel-play')).toHaveAttribute('aria-label', 'Resume the slideshow')
+	await stillPage.waitForTimeout(7_000)
+	await expect(stillPage.locator('#carousel-status')).toHaveText('1 / 4')
+	await still.close()
 })

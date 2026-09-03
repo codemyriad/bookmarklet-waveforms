@@ -57,7 +57,36 @@
 		.instructions .aside a { color: var(--primary); text-underline-offset: 3px; }
 		.try { margin-top: 32px; }
 		.try-grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; }
-		.try video { display: block; width: 100%; height: auto; background: #000; border-right: 1px solid var(--base-300); }
+		.karaoke { display: flex; flex-direction: column; border-right: 1px solid var(--base-300); background: #0a0a0a; }
+		.stage { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 280px; height: 100%; background: radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, .04) 0%, transparent 70%), #0a0a0a; padding-top: 1.5rem; user-select: none; }
+		.stage.is-fullscreen { position: fixed; inset: 0; z-index: 1000; display: flex; flex-direction: column; justify-content: center; height: 100dvh; width: 100vw; background: #0a0a0a; }
+		.stage.is-fullscreen .stage__in { flex: 1; min-height: 0; }
+		.stage.is-fullscreen .now { font-size: clamp(2.4rem, 1rem + 9vh, 7rem); }
+		.stage.is-fullscreen .ctx { font-size: clamp(1rem, 0.6rem + 2vh, 1.6rem); }
+		.stage__in { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 1.5rem 1.5rem 0.5rem; text-align: center; }
+		.rows { display: grid; grid-template-rows: 2.2em minmax(1.3em, auto) 2.2em; align-items: center; justify-items: center; gap: 0.4rem; width: 100%; max-width: 46ch; }
+		.context { display: flex; flex-wrap: nowrap; align-items: baseline; justify-content: center; gap: 0 0.45em; margin: 0; overflow: hidden; max-width: 100%; }
+		.context--before { align-self: end; }
+		.context--after { align-self: start; }
+		.ctx, .now { appearance: none; background: none; border: 0; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; cursor: pointer; white-space: nowrap; transition: color 140ms ease, opacity 140ms ease; }
+		.ctx { font-size: clamp(0.85rem, 0.75rem + 0.5vw, 1.05rem); line-height: 1.5; color: rgba(250, 250, 250, .35); }
+		.ctx[data-near='2'] { opacity: 0.7; }
+		.ctx[data-near='3'] { opacity: 0.45; }
+		.ctx[data-near='4'] { opacity: 0.25; }
+		.now { font-size: clamp(1.6rem, 1rem + 2.5vw, 2.8rem); font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; color: rgba(250, 250, 250, .55); }
+		.now.is-sung { color: var(--primary); }
+		.ctx:focus-visible, .now:focus-visible { outline: 1px solid var(--primary); outline-offset: 3px; }
+		.who { margin: 1.2rem 0 0; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(250, 250, 250, .35); }
+		.transport { display: flex; align-items: center; gap: 0.9rem; width: 100%; padding: 1rem 1.2rem 1.2rem; border-top: 1px solid rgba(51, 51, 51, .5); }
+		.play { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border: 1px solid rgba(250, 250, 250, .25); border-radius: 50%; background: none; color: #fafafa; font-size: 12px; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+		.play:hover { border-color: var(--primary); color: var(--primary); }
+		.iconbtn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 2.4rem; height: 2.4rem; border: 1px solid rgba(250, 250, 250, .25); border-radius: 50%; background: none; color: #fafafa; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+		.iconbtn:hover { border-color: var(--primary); color: var(--primary); }
+		.iconbtn:focus-visible, .play:focus-visible { outline: 1px solid var(--primary); outline-offset: 3px; }
+		.t { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; color: rgba(250, 250, 250, .45); font-variant-numeric: tabular-nums; }
+		.bar { flex: 1; height: 4px; background: var(--base-300); cursor: pointer; position: relative; }
+		.bar__fill { height: 100%; background: var(--primary); pointer-events: none; }
+		.bar:focus-visible { outline: 1px solid var(--primary); outline-offset: 4px; }
 		.try-text { padding: 22px; }
 		.try-text p { margin: 0 0 14px; line-height: 1.65; }
 		.try-text p:last-child { margin-bottom: 0; }
@@ -87,13 +116,36 @@
 		.platform-list li { margin: 0; padding: 11px 12px; color: #fafafa; border: 1px solid var(--base-300); font-size: .82rem; }
 		.platform-note { margin: 18px 0 0; color: var(--content-muted); font-size: .78rem; line-height: 1.65; }
 		.platform-note strong { color: rgba(250, 250, 250, .8); font-weight: 600; }
-		.showcase { position: relative; left: 50%; width: min(1280px, calc(100vw - 40px)); margin: 80px 0 0; transform: translateX(-50%); }
-		.showcase .section-heading { border: 1px solid var(--base-300); }
-		.showcase-grid { display: grid; gap: 24px; margin-top: 18px; }
-		.showcase figure { margin: 0; }
-		.showcase-platform { margin: 0; padding: 13px 14px; color: #fafafa; background: rgba(255, 255, 255, .035); border: solid var(--base-300); border-width: 1px 1px 0; font-size: 1rem; font-weight: 600; letter-spacing: .06em; }
-		.showcase img { display: block; width: 100%; height: auto; border: 1px solid var(--base-300); }
-		.showcase figcaption { padding: 10px 12px; color: var(--content-muted); border: solid var(--base-300); border-width: 0 1px 1px; font-size: .78rem; letter-spacing: .04em; }
+		.showcase { margin: 32px 0 0; }
+		.showcase .section-heading { border: 1px solid var(--base-300); border-bottom: 0; }
+		.carousel-status { color: var(--primary); font-size: .7rem; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+		.carousel { border: 1px solid var(--base-300); background: rgba(255, 255, 255, .025); }
+		.carousel-track { position: relative; display: flex; gap: 14px; padding: 14px 0; overflow-x: auto; overscroll-behavior-x: contain; scroll-snap-type: x mandatory; scrollbar-width: none; }
+		.carousel-track.is-tweening { scroll-snap-type: none; }
+		.carousel-track::-webkit-scrollbar { display: none; }
+		.carousel-track:focus-visible { outline: 2px solid #fafafa; outline-offset: -2px; }
+		.carousel-track::before, .carousel-track::after { content: ""; flex: 0 0 calc((100% - var(--slide-width)) / 2 - 14px); }
+		.carousel { --slide-width: min(60%, 600px); }
+		.slide { flex: 0 0 var(--slide-width); min-width: 0; margin: 0; scroll-snap-align: center; scroll-snap-stop: always; border: 1px solid var(--base-300); background: var(--base-100); opacity: .45; transition: opacity .3s ease; }
+		.slide.is-current { opacity: 1; }
+		.slide img { display: block; width: 100%; height: auto; background: #000; }
+		.slide figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-height: 64px; padding: 10px 12px; border-top: 1px solid var(--base-300); font-size: .74rem; line-height: 1.5; letter-spacing: .02em; }
+		.showcase-platform { margin: 0; color: #fafafa; font-weight: 600; }
+		.slide-caption { color: var(--content-muted); }
+		.carousel-controls { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 10px; border-top: 1px solid var(--base-300); }
+		.carousel-button { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0 0 3px; color: #fafafa; background: var(--base-200); border: 1px solid var(--base-300); border-radius: 0; font: inherit; font-size: 1.3rem; line-height: 1; cursor: pointer; transition: color .2s ease, background .2s ease, border-color .2s ease; }
+		.carousel-button:hover, .carousel-button:focus-visible { color: #0a0a0a; background: var(--primary); border-color: var(--primary); outline: none; }
+		.carousel-play { width: 32px; height: 32px; padding: 0; font-size: .7rem; letter-spacing: -.1em; }
+		.carousel-middle { display: flex; align-items: center; gap: 16px; }
+		.carousel-dots { display: flex; gap: 8px; margin: 0; padding: 0; list-style: none; }
+		.carousel-dots button { display: grid; place-items: center; width: 24px; height: 24px; padding: 0; background: transparent; border: 0; border-radius: 0; cursor: pointer; }
+		.carousel-dots button::before { content: ""; width: 12px; height: 12px; border: 1px solid rgba(250, 250, 250, .4); transition: background .2s ease, border-color .2s ease; }
+		.carousel-dots button:hover::before, .carousel-dots button:focus-visible::before { border-color: #fafafa; }
+		.carousel-dots button:focus-visible { outline: 2px solid #fafafa; outline-offset: 1px; }
+		.carousel-dots button[aria-current="true"]::before { background: var(--primary); border-color: var(--primary); }
+		@media (prefers-reduced-motion: reduce) {
+			.carousel-button, .carousel-dots button::before, .slide { transition: none; }
+		}
 		.site-footer { padding: 20px; border-top: 1px solid var(--base-300); color: rgba(250, 250, 250, .48); font-size: .72rem; }
 		.site-footer .content { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px 28px; }
 		.footer-links { display: flex; flex-wrap: wrap; gap: 18px; }
@@ -123,11 +175,13 @@
 			.hero { margin-bottom: 52px; }
 			.install-grid { grid-template-columns: 1fr; }
 			.try-grid { grid-template-columns: 1fr; }
-			.try video { border-right: 0; border-bottom: 1px solid var(--base-300); }
+			.karaoke { border-right: 0; border-bottom: 1px solid var(--base-300); }
 			.install-action { order: 1; border-right: 0; border-top: 1px solid var(--base-300); }
 			.instructions { padding-inline: 20px; }
 			.platform-list { grid-template-columns: 1fr; }
-			.showcase { width: calc(100vw - 32px); }
+			.carousel { --slide-width: 84%; }
+			.carousel-track { gap: 10px; padding: 10px 0; }
+			.carousel-track::before, .carousel-track::after { flex-basis: calc((100% - var(--slide-width)) / 2 - 10px); }
 			.site-footer { padding: 20px 48px 20px 16px; }
 			.keyboard-help-toggle { right: 12px; bottom: 12px; }
 			.shortcut-list li { grid-template-columns: 78px minmax(0, 1fr); }
@@ -173,10 +227,69 @@
 			<section class="card try" aria-labelledby="try-title">
 				<h2 id="try-title" class="section-heading"><span data-i18n="tryTitle">Try it now</span><span class="index">02</span></h2>
 				<div class="try-grid">
-					<video id="demo-clip" controls preload="metadata" playsinline width="640" height="360" aria-label="Test clip: two voices and a fan" data-i18n-aria-label="clipLabel"><source src="/assets/demo-call.0.5.4.mp4" type="video/mp4"><source src="/assets/demo-call.0.5.4.webm" type="video/webm"></video>
+					<div class="karaoke" id="karaoke-player">
+						<div class="stage" id="karaoke-stage">
+							<div class="stage__in">
+								<div class="rows">
+									<p class="context context--before" id="lyrics-before"></p>
+									<button type="button" class="now" id="lyrics-now" aria-label="Current word"></button>
+									<p class="context context--after" id="lyrics-after"></p>
+								</div>
+								<p class="who" id="lyrics-who">Tom Lehrer · The Elements (1959)</p>
+							</div>
+							<div class="transport">
+								<button type="button" class="play" id="karaoke-play" aria-label="Play">▶</button>
+								<span class="t" id="karaoke-time">0:00</span>
+								<div class="bar" id="karaoke-scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+									<div class="bar__fill" id="karaoke-bar-fill" style="width: 0%"></div>
+								</div>
+								<span class="t" id="karaoke-duration">1:26</span>
+								<button type="button" class="iconbtn" id="karaoke-fs" aria-label="Fullscreen" title="Fullscreen">
+									<svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true">
+										<path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 7V4.5A1.5 1.5 0 0 1 4.5 3H7M13 3h2.5A1.5 1.5 0 0 1 17 4.5V7M17 13v2.5a1.5 1.5 0 0 1-1.5 1.5H13M7 17H4.5A1.5 1.5 0 0 1 3 15.5V13" />
+									</svg>
+								</button>
+							</div>
+							<audio id="demo-clip" preload="metadata" playsinline aria-label="The Element Song — Tom Lehrer" data-i18n-aria-label="clipLabel">
+								<source src="/assets/elements.0.5.4.opus" type="audio/ogg; codecs=opus">
+								<source src="/assets/elements.0.5.4.mp4" type="audio/mp4">
+							</audio>
+						</div>
+					</div>
 					<div class="try-text">
 						<p data-i18n-html="tryLead">Press play, then click your new <strong>🌊 Talk</strong> bookmark.</p>
 						<p id="try-status" class="try-status" data-i18n="tryIdle">A graph of the sound appears in the bottom-left corner of this page. Click the bookmark again to close it.</p>
+					</div>
+				</div>
+			</section>
+			<section class="showcase" aria-labelledby="showcase-title">
+				<h2 id="showcase-title" class="section-heading"><span data-i18n="showcaseTitle">How it looks</span><span class="carousel-status" id="carousel-status" aria-live="off">1 / 4</span></h2>
+				<div class="carousel" id="showcase-carousel" role="region" aria-roledescription="carousel" aria-label="Screenshots" data-i18n-aria-label="carouselLabel">
+					<div class="carousel-track" id="carousel-track" tabindex="0" aria-label="Screenshots" data-i18n-aria-label="carouselLabel">
+						<figure class="slide" role="group" aria-roledescription="slide" aria-label="Screenshot 1 of 4: Jitsi Meet" data-platform="Jitsi Meet">
+							<img src="/assets/jitsi-waveforms-showcase.0.4.0.png" width="2560" height="1600" loading="eager" data-i18n-alt="jitsiAlt" alt="A Jitsi Meet call between Ada Lovelace, Alan Turing, Hypatia, and Mary Somerville, with a separate audio visualization attached to each participant">
+							<figcaption><strong class="showcase-platform">Jitsi Meet</strong><span class="slide-caption" data-i18n="jitsiCaption">One graph per tile. The steady line under Mary Somerville’s spectrogram is her fan.</span></figcaption>
+						</figure>
+						<figure class="slide" role="group" aria-roledescription="slide" aria-label="Screenshot 2 of 4: Google Meet" data-platform="Google Meet">
+							<img src="/assets/google-meet-waveforms-showcase.0.5.1.png" width="2560" height="1600" loading="lazy" data-i18n-alt="googleAlt" alt="A Google Meet conversation about whether the Analytical Engine could compose music between Charles Babbage, Mary Somerville, Michael Faraday, and Ada Lovelace, with four different audio views">
+							<figcaption><strong class="showcase-platform">Google Meet</strong><span class="slide-caption" data-i18n="googleCaption">Pick a view per tile: level history, waveform, spectrogram. Ada Lovelace is speaking, Michael Faraday just finished.</span></figcaption>
+						</figure>
+						<figure class="slide" role="group" aria-roledescription="slide" aria-label="Screenshot 3 of 4: Microsoft Teams" data-platform="Microsoft Teams">
+							<img src="/assets/teams-waveforms-showcase.0.5.0.png" width="2560" height="1600" loading="lazy" data-i18n-alt="teamsAlt" alt="A Microsoft Teams call about calendar reform between Julius Caesar, Cleopatra, Cicero, and Sosigenes, with a separate audio visualization on every participant">
+							<figcaption><strong class="showcase-platform">Microsoft Teams</strong><span class="slide-caption" data-i18n="teamsCaption">Spectrograms keep the last 15 seconds: Cicero spoke a moment ago, Sosigenes is speaking now.</span></figcaption>
+						</figure>
+						<figure class="slide" role="group" aria-roledescription="slide" aria-label="Screenshot 4 of 4: Nextcloud Talk" data-platform="Nextcloud Talk">
+							<img src="/assets/talk-waveforms-showcase.0.5.3.png" width="2560" height="1600" loading="lazy" data-i18n-alt="nextcloudAlt" alt="A Nextcloud Talk call between Albert Einstein, Ernest Rutherford, Henri Poincaré, and Marie Curie, with two spectrograms, a waveform, and a level history shown on separate participant cards">
+							<figcaption><strong class="showcase-platform">Nextcloud Talk</strong><span class="slide-caption" data-i18n="nextcloudCaption">Henri Poincaré’s waveform moves live, Marie Curie’s level history holds her last words.</span></figcaption>
+						</figure>
+					</div>
+					<div class="carousel-controls">
+						<button class="carousel-button" id="carousel-previous" type="button" data-direction="-1" aria-label="Previous screenshot" data-i18n-aria-label="carouselPrevious" aria-controls="carousel-track">‹</button>
+						<div class="carousel-middle">
+							<ol class="carousel-dots" id="carousel-dots" aria-label="Screenshots" data-i18n-aria-label="carouselLabel"></ol>
+							<button class="carousel-button carousel-play" id="carousel-play" type="button" aria-label="Pause the slideshow" data-i18n-aria-label="carouselPause">❚❚</button>
+						</div>
+						<button class="carousel-button" id="carousel-next" type="button" data-direction="1" aria-label="Next screenshot" data-i18n-aria-label="carouselNext" aria-controls="carousel-track">›</button>
 					</div>
 				</div>
 			</section>
@@ -192,31 +305,6 @@
 					</ul>
 					<p class="platform-note" data-i18n-html="callNote"><strong>Best effort:</strong> WhatsApp and other browser calls get a floating panel with whatever audio the page makes available.</p>
 					<p class="views" data-i18n-html="views">Each graph has a button that switches between four views (waveform, 15-second level history, spectrum, 15-second spectrogram) and a <strong>−</strong> that collapses it.</p>
-				</div>
-			</section>
-			<section class="showcase" aria-labelledby="showcase-title">
-				<h2 id="showcase-title" class="section-heading"><span data-i18n="showcaseTitle">How it looks</span><span class="index">04</span></h2>
-				<div class="showcase-grid">
-					<figure aria-labelledby="jitsi-showcase-title">
-						<h3 id="jitsi-showcase-title" class="showcase-platform">Jitsi Meet</h3>
-						<img src="/assets/jitsi-waveforms-showcase.0.4.0.png" width="2560" height="1600" loading="lazy" data-i18n-alt="jitsiAlt" alt="A Jitsi Meet call between Ada Lovelace, Alan Turing, Hypatia, and Mary Somerville, with a separate audio visualization attached to each participant">
-						<figcaption data-i18n="jitsiCaption">Four participants · three views</figcaption>
-					</figure>
-					<figure aria-labelledby="google-showcase-title">
-						<h3 id="google-showcase-title" class="showcase-platform">Google Meet</h3>
-						<img src="/assets/google-meet-waveforms-showcase.0.5.1.png" width="2560" height="1600" loading="lazy" data-i18n-alt="googleAlt" alt="A Google Meet conversation about whether the Analytical Engine could compose music between Charles Babbage, Mary Somerville, Michael Faraday, and Ada Lovelace, with four different audio views">
-						<figcaption data-i18n="googleCaption">The Analytical Engine · four microphones</figcaption>
-					</figure>
-					<figure aria-labelledby="teams-showcase-title">
-						<h3 id="teams-showcase-title" class="showcase-platform">Microsoft Teams</h3>
-						<img src="/assets/teams-waveforms-showcase.0.5.0.png" width="2560" height="1600" loading="lazy" data-i18n-alt="teamsAlt" alt="A Microsoft Teams call about calendar reform between Julius Caesar, Cleopatra, Cicero, and Sosigenes, with a separate audio visualization on every participant">
-						<figcaption data-i18n="teamsCaption">Calendar reform · four microphones</figcaption>
-					</figure>
-					<figure aria-labelledby="nextcloud-showcase-title">
-						<h3 id="nextcloud-showcase-title" class="showcase-platform">Nextcloud Talk</h3>
-						<img src="/assets/talk-waveforms-showcase.0.5.3.png" width="2560" height="1600" loading="lazy" data-i18n-alt="nextcloudAlt" alt="A Nextcloud Talk call between Albert Einstein, Ernest Rutherford, Henri Poincaré, and Marie Curie, with two spectrograms, a waveform, and a level history shown on separate participant cards">
-						<figcaption data-i18n="nextcloudCaption">One graph per microphone</figcaption>
-					</figure>
 				</div>
 			</section>
 		</div>

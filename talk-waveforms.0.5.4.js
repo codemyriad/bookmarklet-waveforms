@@ -456,7 +456,7 @@
 	function removeSource(key) {
 		const source = sources.get(key)
 		if (!source) return
-		if (source.owned) {
+		if (source.owned && source.stream) {
 			source.stream.getTracks().forEach((track) => track.stop())
 			ownedStreams.delete(source.stream)
 		}
@@ -684,17 +684,21 @@
 		analyser.fftSize = 1024
 		analyser.smoothingTimeConstant = 0.72
 		node.connect(analyser)
+		return registerSource(key, { stream, audioTracks, node, analyser }, options)
+	}
 
+	// Builds a lane around an analyser. Stream-backed lanes come from
+	// addStream(); lanes tapped from a page's own audio graph have no stream.
+	function registerSource(key, { stream, audioTracks, node, analyser }, options = {}) {
 		const providedLabel = cleanText(options.label)
-		const fallbackLabel = `Participant ${nextSourceNumber++}`
-		const label = providedLabel || fallbackLabel
+		const label = providedLabel || `Participant ${nextSourceNumber++}`
 		const direction = options.direction || 'remote'
 		const origin = options.origin || 'dom'
 
 		const source = {
 			key,
 			stream,
-			trackId: audioTracks[0].id,
+			trackId: audioTracks[0]?.id || null,
 			receiverTrack: options.receiverTrack || null,
 			senderTrack: options.senderTrack || null,
 			elements: new Set(options.element ? [options.element] : []),
@@ -736,7 +740,7 @@
 		source.spectrogramContext.fillStyle = '#071018'
 		source.spectrogramContext.fillRect(0, 0, SPECTROGRAM_HISTORY_WIDTH, SPECTROGRAM_HISTORY_HEIGHT)
 		source.spectrogramColumn = source.spectrogramContext.createImageData(1, SPECTROGRAM_HISTORY_HEIGHT)
-		const nyquist = audioContext.sampleRate / 2
+		const nyquist = analyser.context.sampleRate / 2
 		const maxBin = Math.min(source.frequencyData.length - 1, Math.floor(8_000 / nyquist * source.frequencyData.length))
 		for (let y = 0; y < SPECTROGRAM_HISTORY_HEIGHT; y++) {
 			const normalizedFrequency = 1 - y / Math.max(1, SPECTROGRAM_HISTORY_HEIGHT - 1)
@@ -753,6 +757,94 @@
 		}
 		updateEmptyState()
 		return source
+	}
+
+	// Pages that decode call audio themselves (WhatsApp Web does, through an
+	// AudioWorklet) never expose a MediaStream. Whatever they connect to their
+	// AudioContext's destination is tapped into one lane per context instead,
+	// and any microphone stream they feed into Web Audio becomes a local lane.
+	const graphOutputs = new Map()
+	let nextGraphNumber = 1
+	const audioNodePrototype = window.AudioNode?.prototype
+	// createMediaStreamSource lives on AudioContext.prototype itself (it is not a
+	// BaseAudioContext method), so that is where it has to be wrapped.
+	const contextPrototype = AudioContextClass.prototype
+	const originalConnect = audioNodePrototype?.connect
+	const originalCreateMediaStreamSource = contextPrototype?.createMediaStreamSource
+	let wrappedConnect = null
+	let wrappedCreateMediaStreamSource = null
+
+	function tapGraphOutput(node) {
+		const context = node.context
+		if (!context || context === audioContext || context.state === 'closed') return
+		let entry = graphOutputs.get(context)
+		if (!entry) {
+			let analyser
+			try {
+				analyser = context.createAnalyser()
+			} catch {
+				return
+			}
+			analyser.fftSize = 1024
+			analyser.smoothingTimeConstant = 0.72
+			const source = registerSource(`graph-${nextGraphNumber++}`, { stream: null, audioTracks: [], node: analyser, analyser }, {
+				label: 'Page audio',
+				direction: 'remote',
+				origin: 'audio-graph',
+				persistent: true,
+			})
+			entry = { source, analyser, tapped: new WeakSet() }
+			graphOutputs.set(context, entry)
+			context.addEventListener?.('statechange', () => {
+				if (context.state === 'closed') {
+					graphOutputs.delete(context)
+					removeSource(source.key)
+				}
+			})
+		}
+		if (entry.tapped.has(node)) return
+		entry.tapped.add(node)
+		try { originalConnect.call(node, entry.analyser) } catch {}
+	}
+
+	function releaseGraphOutputs() {
+		// Tapped nodes are held weakly, so they are not disconnected one by one:
+		// an orphaned analyser with no output costs nothing and is collected
+		// together with the nodes that fed it.
+		for (const entry of graphOutputs.values()) {
+			try { entry.analyser.disconnect() } catch {}
+		}
+		graphOutputs.clear()
+	}
+
+	if (!usesCardOverlays && originalConnect && window.AudioDestinationNode) {
+		wrappedConnect = function (destination, ...rest) {
+			const result = originalConnect.call(this, destination, ...rest)
+			if (!destroyed && destination instanceof AudioDestinationNode) tapGraphOutput(this)
+			return result
+		}
+		try { audioNodePrototype.connect = wrappedConnect } catch {}
+	}
+	if (!usesCardOverlays && originalCreateMediaStreamSource) {
+		wrappedCreateMediaStreamSource = function (stream, ...rest) {
+			const node = originalCreateMediaStreamSource.call(this, stream, ...rest)
+			if (!destroyed && this !== audioContext && stream instanceof MediaStream) {
+				const audioTracks = stream.getAudioTracks().filter((track) => track.readyState === 'live')
+				// Only capture-device tracks (getUserMedia) carry a deviceId: the microphone.
+				const local = audioTracks.some((track) => {
+					const id = track.getSettings?.().deviceId
+					return Boolean(id && !id.startsWith("WebAudio"))
+				})
+				addStream(stream, {
+					label: local ? 'You' : undefined,
+					direction: local ? 'local' : 'remote',
+					origin: 'audio-graph',
+					persistent: true,
+				})
+			}
+			return node
+		}
+		try { contextPrototype.createMediaStreamSource = wrappedCreateMediaStreamSource } catch {}
 	}
 
 	function scanJitsiTracks() {
@@ -854,7 +946,7 @@
 				mountSource(source, connectedElement)
 			}
 			reconcileNextcloudParticipantCard(source)
-			const live = source.stream.getAudioTracks().some((track) => track.readyState === 'live')
+			const live = !source.stream || source.stream.getAudioTracks().some((track) => track.readyState === 'live')
 			if (!live || (!source.owned && !source.persistent && source.elements.size === 0 && seenElements.size > 0)) removeSource(key)
 		}
 		updateEmptyState()
@@ -1365,6 +1457,13 @@
 		if (mediaDevices?.getUserMedia === wrappedGetUserMedia) {
 			try { mediaDevices.getUserMedia = originalGetUserMedia } catch {}
 		}
+		if (audioNodePrototype?.connect === wrappedConnect) {
+			try { audioNodePrototype.connect = originalConnect } catch {}
+		}
+		if (contextPrototype?.createMediaStreamSource === wrappedCreateMediaStreamSource) {
+			try { contextPrototype.createMediaStreamSource = originalCreateMediaStreamSource } catch {}
+		}
+		releaseGraphOutputs()
 		sources.clear()
 		for (const [card, originalPosition] of modifiedCards) {
 			card.style.position = originalPosition
