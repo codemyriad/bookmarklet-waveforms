@@ -11,23 +11,34 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 
 	await expect(page).toHaveTitle('Talk waveforms')
 	await expect(page.getByRole('heading', { level: 1 })).toHaveText('See the call audio.')
-	await expect(page.locator('.lede')).toHaveText('See what others hear from your mic—and whose mic that bark, buzz, or background noise came from—in Nextcloud Talk, Jitsi Meet, Google Meet, Microsoft Teams, WhatsApp, and other browser calls.')
+	await expect(page.locator('.lede')).toHaveText('See what the others hear from your microphone, and whose microphone that bark or hum is coming from. Works in Nextcloud Talk, Jitsi Meet, Google Meet, Microsoft Teams and other calls that run in your browser.')
 	await expect(page.getByRole('link', { name: 'Code Myriad homepage' })).toHaveAttribute('href', 'https://codemyriad.io/')
 	await expect(page.getByRole('link', { name: 'Made by Code Myriad' })).toHaveAttribute('href', 'https://codemyriad.io/')
 	await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', '/assets/favicon.0.3.3.svg')
 	await expect(page.getByRole('link', { name: 'Fork Talk waveforms on GitHub' }))
 		.toHaveAttribute('href', 'https://github.com/codemyriad/bookmarklet-waveforms')
-	await expect(page.getByRole('heading', { name: 'How it looks like' })).toBeVisible()
-	await expect(page.getByRole('heading', { name: 'Supported platforms' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'How it looks' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'In a call' })).toBeVisible()
+	await expect(page.getByRole('heading', { name: 'Try it now' })).toBeVisible()
 	await expect(page.locator('.platform-list li')).toHaveText([
 		'Nextcloud Talk',
 		'Jitsi Meet',
 		'Google Meet',
 		'Microsoft Teams',
 	])
-	await expect(page.locator('.platform-note')).toHaveText('Best effort: WhatsApp and other browser calls use a floating panel for audio the page makes available.')
-	await expect(page.locator('.instructions li').nth(2)).toHaveText('Click the bookmark.')
+	await expect(page.locator('.platform-note')).toHaveText('Best effort: WhatsApp and other browser calls get a floating panel with whatever audio the page makes available.')
+
+	// Desktop Chromium: the bar shortcut and drag-and-drop steps, chosen from the user agent.
+	await expect(page.locator('#browser-name')).toHaveText('Chrome, Edge or Brave')
+	await expect(page.locator('#install-steps li')).toHaveCount(2)
+	await expect(page.locator('#bookmarks-instruction')).toHaveText('Show the bookmarks bar')
 	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['Ctrl', '⇧', 'B'])
+	await expect(page.locator('#install-steps li').nth(1)).toContainText('Drag 🌊 Talk onto the bar.')
+
+	const demoClip = page.locator('#demo-clip')
+	await expect(demoClip.locator('source').first()).toHaveAttribute('src', '/assets/demo-call.0.5.4.mp4')
+	await expect(demoClip.locator('source').nth(1)).toHaveAttribute('src', '/assets/demo-call.0.5.4.webm')
+	await expect(page.locator('#try-status')).toHaveText('A graph of the sound appears in the bottom-left corner of this page. Click the bookmark again to close it.')
 
 	const keyboardGuide = page.locator('#keyboard-help-dialog')
 	const keyboardGuideToggle = page.getByRole('button', { name: 'Show keyboard shortcuts' })
@@ -42,6 +53,8 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	await expect(keyboardGuide).not.toBeVisible()
 	await page.keyboard.press('i')
 	await expect(page.locator('#install-title')).toBeFocused()
+	await page.keyboard.press('t')
+	await expect(page.locator('#try-title')).toBeFocused()
 	await page.evaluate(() => {
 		window.__keyboardShortcutDestination = null
 		document.querySelector('.brand').addEventListener('click', (event) => {
@@ -97,13 +110,15 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 	expect(href).not.toContain('%22use%20strict%22')
 	expect(decodeURIComponent(href)).toContain('0.5.4')
 
-	await bookmarklet.click()
-	await expect(page.locator('#status')).toHaveText('Copied the complete javascript: bookmarklet. Paste it into a bookmark’s URL field.')
+	await expect(page.locator('#status')).toHaveText('Drag this to your bookmarks bar, or click it to try it on this page.')
+	await page.locator('#copy-bookmarklet').click()
+	await expect(page.locator('#status')).toHaveText('Copied. Paste it as the address of a new bookmark.')
 	const clipboardText = await page.evaluate(() => navigator.clipboard.readText())
 	expect(clipboardText).toBe(href)
 	expect(clipboardText.startsWith('javascript:')).toBe(true)
 
-	await page.evaluate(decodeURIComponent(href.replace(/^javascript:/, '')))
+	// Clicking the button runs the bookmarklet on the homepage itself.
+	await bookmarklet.click()
 	await expect(page.locator('#nctalk-waveform')).toBeVisible()
 	expect(await page.locator('#nctalk-waveform').evaluate((host) => ({
 		platform: window.__TALK_WAVEFORMS__.platform,
@@ -125,5 +140,51 @@ test('shows the macOS bookmarks-bar shortcut on Apple desktops', async ({ page }
 	const navigationUrl = new URL(homepageUrl)
 	navigationUrl.searchParams.set('_', Date.now())
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(page.locator('#browser-name')).toHaveText('Chrome, Edge or Brave')
 	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['⌘', '⇧', 'B'])
 })
+
+test('shows copy-and-edit steps on an iPhone', async ({ browser }) => {
+	const context = await browser.newContext({
+		userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+		viewport: { width: 390, height: 844 },
+		hasTouch: true,
+		isMobile: true,
+	})
+	const page = await context.newPage()
+	const navigationUrl = new URL(homepageUrl)
+	navigationUrl.searchParams.set('_', Date.now())
+	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(page.locator('#browser-name')).toHaveText('iPhone and iPad')
+	await expect(page.locator('#install-steps li')).toHaveCount(4)
+	await expect(page.locator('#install-steps li').last()).toHaveText('In a call, open your bookmarks and tap Talk.')
+	await expect(page.locator('#status')).toHaveText('Tap to copy it.')
+	await expect(page.locator('#copy-bookmarklet')).toHaveCount(0)
+	await context.close()
+})
+
+const agentCases = [
+	{ name: 'Firefox', agent: 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0', label: 'Firefox', instruction: 'Show the bookmarks toolbar', keys: ['Ctrl', '⇧', 'B'], steps: 2 },
+	{ name: 'Safari', agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', platform: 'MacIntel', label: 'Safari', instruction: 'Show the favourites bar', keys: ['⌘', '⇧', 'B'], steps: 2 },
+	{ name: 'Android', agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36', label: 'Android', first: 'Tap 🌊 Talk above to copy it.', steps: 4 },
+]
+
+for (const agentCase of agentCases) {
+	test(`picks the ${agentCase.name} steps from the user agent`, async ({ browser }) => {
+		const context = await browser.newContext({ userAgent: agentCase.agent })
+		const page = await context.newPage()
+		await page.addInitScript((platform) => {
+			Object.defineProperty(navigator, 'userAgentData', { configurable: true, get: () => undefined })
+			if (platform) Object.defineProperty(navigator, 'platform', { configurable: true, get: () => platform })
+		}, agentCase.platform || '')
+		const navigationUrl = new URL(homepageUrl)
+		navigationUrl.searchParams.set('_', Date.now())
+		await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+		await expect(page.locator('#browser-name')).toHaveText(agentCase.label)
+		await expect(page.locator('#install-steps li')).toHaveCount(agentCase.steps)
+		if (agentCase.instruction) await expect(page.locator('#bookmarks-instruction')).toHaveText(agentCase.instruction)
+		if (agentCase.keys) await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(agentCase.keys)
+		if (agentCase.first) await expect(page.locator('#install-steps li').first()).toHaveText(agentCase.first)
+		await context.close()
+	})
+}

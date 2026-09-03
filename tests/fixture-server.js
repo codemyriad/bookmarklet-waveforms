@@ -7,6 +7,8 @@ const routes = new Map([
 	['/', ['text/html; charset=utf-8', path.join(root, 'site', 'index.html')]],
 	['/install.0.5.4.js', ['text/javascript; charset=utf-8', path.join(root, 'site', 'install.0.5.4.js')]],
 	['/talk-waveforms.0.5.4.js', ['text/javascript; charset=utf-8', path.join(root, 'talk-waveforms.0.5.4.js')]],
+	['/assets/demo-call.0.5.4.mp4', ['video/mp4', path.join(root, 'site', 'assets', 'demo-call.0.5.4.mp4')]],
+	['/assets/demo-call.0.5.4.webm', ['video/webm', path.join(root, 'site', 'assets', 'demo-call.0.5.4.webm')]],
 	['/assets/codemyriad-logo.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'codemyriad-logo.svg')]],
 	['/assets/favicon.0.3.3.svg', ['image/svg+xml', path.join(root, 'site', 'assets', 'favicon.0.3.3.svg')]],
 	['/assets/talk-waveforms-showcase.0.3.3.png', ['image/png', path.join(root, 'site', 'assets', 'talk-waveforms-showcase.0.3.3.png')]],

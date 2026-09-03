@@ -5,6 +5,7 @@
   "scripts": {
     "build:bookmarklet": "node scripts/build-bookmarklet.js",
     "check:bookmarklet": "node scripts/build-bookmarklet.js --check",
+    "build:demo-clip": "node scripts/build-demo-clip.js",
     "build:readme": "node scripts/build-readme.js",
     "check:readme": "node scripts/build-readme.js --check",
     "test": "playwright test",
