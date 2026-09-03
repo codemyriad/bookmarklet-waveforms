@@ -136,6 +136,17 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 		return { origin: source.origin, placement: source.viewHost.dataset.placement }
 	})).toEqual({ origin: 'dom', placement: 'fallback' })
 
+	// When the clip ends Chrome ends the captured track; replaying must capture again.
+	const firstKey = await page.evaluate(() => {
+		const [source] = window.__TALK_WAVEFORMS__.sources.values()
+		source.stream.getAudioTracks().forEach((track) => track.stop())
+		return source.key
+	})
+	await expect.poll(() => page.evaluate(() => [...window.__TALK_WAVEFORMS__.sources.keys()]), { timeout: 10_000 }).not.toContain(firstKey)
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size), { timeout: 10_000 }).toBe(1)
+	await expect.poll(() => page.evaluate(() => [...window.__TALK_WAVEFORMS__.sources.values()][0].lastLevel), { timeout: 10_000 }).toBeGreaterThan(0.02)
+	await expect(page.locator('#try-status')).toHaveText('It works. The graph in the corner is following the clip. You are ready for your next call. Click the bookmark again to close it.')
+
 	// A second click on the button closes it, as the page promises.
 	await bookmarklet.click()
 	await expect(page.locator('#nctalk-waveform')).toHaveCount(0)

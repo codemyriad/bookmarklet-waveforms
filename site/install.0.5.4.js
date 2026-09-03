@@ -172,7 +172,9 @@
 			const running = Boolean(document.getElementById('nctalk-waveform'))
 			const sources = running ? [...(window.__TALK_WAVEFORMS__?.sources?.values?.() || [])] : []
 			const hearing = sources.some((source) => source.lastLevel > 0.02)
-			const state = hearing ? 'hearing' : running ? 'running' : 'idle'
+			// Once audio has been seen, keep saying so while the bookmarklet runs:
+			// silences in the clip are not a reason to take the confirmation back.
+			const state = hearing || (running && lastState === 'hearing') ? 'hearing' : running ? 'running' : 'idle'
 			if (state === lastState) return
 			lastState = state
 			tryStatus.classList.toggle('running', running)

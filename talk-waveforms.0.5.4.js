@@ -792,6 +792,12 @@
 			&& directStream.getAudioTracks().some((track) => track.readyState === 'live')) return directStream
 
 		let capturedStream = mediaElementStreams.get(element)
+		if (capturedStream && !capturedStream.getAudioTracks().some((track) => track.readyState === 'live')) {
+			// Chrome ends captured tracks when the media ends; capture again on replay.
+			capturedMediaStreams.delete(capturedStream)
+			mediaElementStreams.delete(element)
+			capturedStream = null
+		}
 		if (!usesCardOverlays
 			&& !capturedStream
 			&& !element.muted
