@@ -5,6 +5,8 @@
   "scripts": {
     "build:bookmarklet": "node scripts/build-bookmarklet.js",
     "check:bookmarklet": "node scripts/build-bookmarklet.js --check",
+    "build:readme": "node scripts/build-readme.js",
+    "check:readme": "node scripts/build-readme.js --check",
     "test": "playwright test",
     "test:local": "LOCAL_ASSET=1 playwright test tests/smoke.spec.js",
     "test:fixture": "LOCAL_FIXTURE=1 LOCAL_ASSET=1 LOCAL_HOMEPAGE=1 TALK_URL=http://127.0.0.1:4173/call/test HOMEPAGE_URL=http://127.0.0.1:4173/ playwright test tests/smoke.spec.js tests/homepage.spec.js tests/google-meet.spec.js tests/microsoft-teams.spec.js tests/generic.spec.js tests/whatsapp.spec.js",
