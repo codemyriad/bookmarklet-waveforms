@@ -13,6 +13,7 @@
     "test:jitsi:showcase": "JITSI_SCREENSHOT=site/assets/jitsi-waveforms-showcase.0.4.0.png JITSI_URL=http://127.0.0.1:18000/CanWeHearTheDifference playwright test tests/jitsi-harness.spec.js --workers=1",
     "test:teams:showcase": "TEAMS_SCREENSHOT=site/assets/teams-waveforms-showcase.0.5.0.png playwright test tests/teams-showcase.spec.js --workers=1",
     "test:google:showcase": "GOOGLE_SCREENSHOT=site/assets/google-meet-waveforms-showcase.0.5.1.png playwright test tests/google-meet-showcase.spec.js --workers=1",
+    "capture:readme": "README_CAPTURE_DIR=docs/readme playwright test tests/readme-captures.spec.js --workers=1",
     "test:showcase": "SHOWCASE_SCREENSHOT=site/assets/talk-waveforms-showcase.0.5.3.png SHOWCASE_SEED=solvay-1911 HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Radiation and Quanta' | tail -n1)\" playwright test tests/harness.spec.js",
     "deploy": "rsync -rv -- site/_headers site/index.html site/install.0.5.4.js site/assets bookmarklet-loader.js talk-waveforms.0.5.4.js pgs.sh:/talk-waveforms/"
   },

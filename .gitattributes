@@ -1,3 +1,4 @@
 tests/participant-images/*.png filter=lfs diff=lfs merge=lfs -text
 site/assets/*.png filter=lfs diff=lfs merge=lfs -text
 docs/reference/*.png filter=lfs diff=lfs merge=lfs -text
+docs/readme/*.png filter=lfs diff=lfs merge=lfs -text
