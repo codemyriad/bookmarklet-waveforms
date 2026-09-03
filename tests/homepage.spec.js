@@ -172,7 +172,7 @@ test('shows the macOS bookmarks-bar shortcut on Apple desktops', async ({ page }
 	await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(['⌘', '⇧', 'B'])
 })
 
-test('shows copy-and-edit steps on an iPhone', async ({ browser }) => {
+test('tells iPhone visitors it is desktop-only and lets them try it', async ({ browser }) => {
 	const context = await browser.newContext({
 		userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
 		viewport: { width: 390, height: 844 },
@@ -183,18 +183,32 @@ test('shows copy-and-edit steps on an iPhone', async ({ browser }) => {
 	const navigationUrl = new URL(homepageUrl)
 	navigationUrl.searchParams.set('_', Date.now())
 	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
-	await expect(page.locator('#browser-name')).toHaveText('iPhone and iPad')
-	await expect(page.locator('#install-steps li')).toHaveCount(4)
-	await expect(page.locator('#install-steps li').last()).toHaveText('In a call, open your bookmarks and tap Talk.')
-	await expect(page.locator('#status')).toHaveText('Tap to copy it.')
+	await expect(page.locator('#mobile-notice')).toBeVisible()
+	await expect(page.locator('#mobile-notice')).toHaveText('This is cool, but it only works on a desktop computer. Have a look anyway: press play on the clip below and tap 🌊 Talk to see it in action.')
+	await expect(page.locator('#install-steps')).toBeHidden()
+	await expect(page.locator('.browser-pick')).toBeHidden()
 	await expect(page.locator('#copy-bookmarklet')).toHaveCount(0)
+	await expect(page.locator('#status')).toHaveText('Tap to try it on this page.')
+	await expect(page.locator('#install-title')).toContainText('Desktop only')
+	await expect(page.locator('#mobile-notice strong')).toHaveText('🌊 Talk')
+	await expect(page.locator('.shortcut-list [data-bookmarks-shortcut] kbd')).toHaveText(['⌘', '⇧', 'B'])
+
+	// Tapping the button runs it; playing the clip feeds it; tapping again closes it.
+	await page.locator('#bookmarklet.ready').tap()
+	await expect(page.locator('#nctalk-waveform')).toBeVisible()
+	await expect(page.locator('#try-status')).toHaveClass(/running/)
+	await page.locator('#demo-clip').evaluate((video) => video.play())
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size), { timeout: 10_000 }).toBe(1)
+	await expect(page.locator('#try-status')).toHaveText('It works. The graph in the corner is following the clip. You are ready for your next call. Click the bookmark again to close it.', { timeout: 10_000 })
+	await page.locator('#bookmarklet').tap()
+	await expect(page.locator('#nctalk-waveform')).toHaveCount(0)
 	await context.close()
 })
 
 const agentCases = [
 	{ name: 'Firefox', agent: 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0', label: 'Firefox', instruction: 'Show the bookmarks toolbar', keys: ['Ctrl', '⇧', 'B'], steps: 2 },
 	{ name: 'Safari', agent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', platform: 'MacIntel', label: 'Safari', instruction: 'Show the favourites bar', keys: ['⌘', '⇧', 'B'], steps: 2 },
-	{ name: 'Android', agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36', label: 'Android', first: 'Tap 🌊 Talk above to copy it.', steps: 4 },
+	{ name: 'Android', agent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36', mobile: true },
 ]
 
 for (const agentCase of agentCases) {
@@ -208,11 +222,20 @@ for (const agentCase of agentCases) {
 		const navigationUrl = new URL(homepageUrl)
 		navigationUrl.searchParams.set('_', Date.now())
 		await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
-		await expect(page.locator('#browser-name')).toHaveText(agentCase.label)
-		await expect(page.locator('#install-steps li')).toHaveCount(agentCase.steps)
-		if (agentCase.instruction) await expect(page.locator('#bookmarks-instruction')).toHaveText(agentCase.instruction)
-		if (agentCase.keys) await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(agentCase.keys)
-		if (agentCase.first) await expect(page.locator('#install-steps li').first()).toHaveText(agentCase.first)
+		if (agentCase.mobile) {
+			await expect(page.locator('#mobile-notice')).toBeVisible()
+			await expect(page.locator('#install-steps')).toBeHidden()
+			await expect(page.locator('#install-steps li')).toHaveCount(0)
+			await expect(page.locator('.shortcut-list [data-bookmarks-shortcut] kbd')).toHaveText(['Ctrl', '⇧', 'B'])
+			await page.locator('#bookmarklet.ready').click()
+			await expect(page.locator('#nctalk-waveform')).toBeVisible()
+		} else {
+			await expect(page.locator('#mobile-notice')).toBeHidden()
+			await expect(page.locator('#browser-name')).toHaveText(agentCase.label)
+			await expect(page.locator('#install-steps li')).toHaveCount(agentCase.steps)
+			await expect(page.locator('#bookmarks-instruction')).toHaveText(agentCase.instruction)
+			await expect(page.locator('[data-bookmarks-shortcut]').first().locator('kbd')).toHaveText(agentCase.keys)
+		}
 		await context.close()
 	})
 }
@@ -260,7 +283,17 @@ for (const languageCase of languageCases) {
 		await expect(page.locator('.showcase img').first()).toHaveAttribute('alt', strings.jitsiAlt)
 		await expect(page.locator('#status')).toHaveText(strings.statusDesktop)
 		await expect(page.locator('.site-footer a').first()).toHaveText(strings.madeBy)
+		await expect(page.locator('#mobile-notice')).toBeHidden()
 		await context.close()
+
+		const phone = await browser.newContext({ locale: languageCase.locale, userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Mobile Safari/537.36', isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } })
+		const phonePage = await phone.newPage()
+		await phonePage.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+		await expect(phonePage.locator('#mobile-notice')).toHaveText(strings.mobileNotice.replace(/<\/?strong>/g, ''))
+		await expect(phonePage.locator('#mobile-notice strong')).toHaveText('🌊 Talk')
+		await expect(phonePage.locator('#install-title')).toContainText(strings.installMobile)
+		await expect(phonePage.locator('#status')).toHaveText(strings.statusMobile)
+		await phone.close()
 	})
 }
 

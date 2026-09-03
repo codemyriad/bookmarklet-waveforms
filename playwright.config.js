@@ -18,6 +18,8 @@ module.exports = defineConfig({
 			...(executablePath ? { executablePath } : {}),
 			args: [
 				'--autoplay-policy=no-user-gesture-required',
+				// A null audio sink: media clocks advance regardless of the machine's output device.
+				'--disable-audio-output',
 				'--use-fake-device-for-media-stream',
 				'--use-fake-ui-for-media-stream',
 			],

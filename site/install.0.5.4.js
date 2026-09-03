@@ -5,6 +5,8 @@
 	const status = document.querySelector('#status')
 	const steps = document.querySelector('#install-steps')
 	const browserName = document.querySelector('#browser-name')
+	const browserPick = document.querySelector('.browser-pick')
+	const mobileNotice = document.querySelector('#mobile-notice')
 	const tryStatus = document.querySelector('#try-status')
 	let bookmarklet = ''
 
@@ -57,7 +59,7 @@
 		const apple = /Mac|iPhone|iPad|iPod/i.test(platform)
 		const iOS = /iPhone|iPad|iPod/i.test(agent) || (/Mac/i.test(platform) && navigator.maxTouchPoints > 1)
 		if (iOS) return { choice: 'ios', apple: true, mobile: true }
-		if (/Android/i.test(agent)) return { choice: 'android', apple: false, mobile: true }
+		if (/Android/i.test(agent) || navigator.userAgentData?.mobile === true) return { choice: 'android', apple: false, mobile: true }
 		if (/Firefox/i.test(agent)) return { choice: 'firefox', apple, mobile: false }
 		const chromium = brands.some((brand) => /Chromium|Chrome|Edge|Brave|Opera/i.test(brand)) || /Chrome|Chromium|Edg\//i.test(agent)
 		if (!chromium && apple && /Safari/i.test(agent)) return { choice: 'safari', apple: true, mobile: false }
@@ -89,12 +91,6 @@
 		return item
 	}
 
-	function htmlStep(key) {
-		const item = document.createElement('li')
-		item.innerHTML = t(key)
-		return item
-	}
-
 	function fragment(html) {
 		const template = document.createElement('template')
 		template.innerHTML = html
@@ -117,25 +113,7 @@
 		return element
 	}
 
-	function renderSteps(choice) {
-		const apple = choice === 'safari' || choice === 'ios' || (browser.apple && choice !== 'android')
-		const keys = shortcutKeys(apple)
-		const spoken = apple ? 'Command Shift B' : 'Control Shift B'
-		const bar = choice === 'safari' ? t('barSafari') : choice === 'firefox' ? t('barFirefox') : t('barChrome')
-		const items = []
-		if (choice === 'android') {
-			items.push(htmlStep('androidStep1'), htmlStep('androidStep2'), htmlStep('androidStep3'), htmlStep('androidStep4'))
-		} else if (choice === 'ios') {
-			items.push(htmlStep('iosStep1'), htmlStep('iosStep2'), htmlStep('iosStep3'), htmlStep('iosStep4'))
-		} else {
-			const instruction = document.createElement('span')
-			instruction.id = 'bookmarks-instruction'
-			instruction.textContent = t('showBar', { bar })
-			const dragItem = document.createElement('li')
-			dragItem.append(fragment(t('dragStep')), dragAside())
-			items.push(step(instruction, keycaps(keys, spoken), '.'), dragItem)
-		}
-		steps.replaceChildren(...items)
+	function renderGuideShortcut(keys, spoken) {
 		document.querySelectorAll('.shortcut-list [data-bookmarks-shortcut]').forEach((target) => {
 			target.replaceChildren()
 			for (const key of keys) {
@@ -147,18 +125,44 @@
 		})
 	}
 
+	function renderSteps(choice) {
+		const apple = choice === 'safari' || browser.apple
+		const keys = shortcutKeys(apple)
+		const spoken = apple ? 'Command Shift B' : 'Control Shift B'
+		const bar = choice === 'safari' ? t('barSafari') : choice === 'firefox' ? t('barFirefox') : t('barChrome')
+		const instruction = document.createElement('span')
+		instruction.id = 'bookmarks-instruction'
+		instruction.textContent = t('showBar', { bar })
+		const dragItem = document.createElement('li')
+		dragItem.append(fragment(t('dragStep')), dragAside())
+		const items = [step(instruction, keycaps(keys, spoken), '.'), dragItem]
+		steps.replaceChildren(...items)
+		renderGuideShortcut(keys, spoken)
+	}
+
 	const browserNames = {
 		chrome: 'browserChrome',
 		firefox: 'browserFirefox',
 		safari: 'browserSafari',
-		android: 'browserAndroid',
-		ios: 'browserIos',
 	}
 
+	// Phones get no install steps: the bookmarklet only makes sense on a
+	// desktop browser with a bookmarks bar. They get a notice and can still
+	// tap the button to see it run on this page.
 	function initBrowserSteps() {
 		if (!steps) return
-		if (browserName) browserName.textContent = t(browserNames[browser.choice])
 		document.documentElement.dataset.browser = browser.choice
+		if (browser.mobile) {
+			if (mobileNotice) mobileNotice.hidden = false
+			if (browserPick) browserPick.hidden = true
+			steps.hidden = true
+			steps.replaceChildren()
+			const installTitle = document.querySelector('#install-title [data-i18n="install"]')
+			if (installTitle) installTitle.textContent = t('installMobile')
+			renderGuideShortcut(shortcutKeys(browser.apple), browser.apple ? 'Command Shift B' : 'Control Shift B')
+			return
+		}
+		if (browserName) browserName.textContent = t(browserNames[browser.choice])
 		renderSteps(browser.choice)
 	}
 
@@ -305,13 +309,6 @@
 		}
 	}
 
-	// On a phone a tap copies the bookmarklet, since there is no bar to drag it
-	// to. On a desktop the link is left alone: clicking it runs the bookmarklet
-	// on this very page, exactly as the bookmark will on a call page.
-	if (browser.mobile) {
-		link.addEventListener('click', (event) => {
-			event.preventDefault()
-			void copyBookmarklet()
-		})
-	}
+	// The link is left alone on purpose: clicking or tapping it runs the
+	// bookmarklet on this very page, exactly as the bookmark will on a call page.
 })()
