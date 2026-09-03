@@ -155,6 +155,7 @@
 		if (browser.mobile) {
 			if (mobileNotice) mobileNotice.hidden = false
 			if (browserPick) browserPick.hidden = true
+			document.querySelector('.what')?.setAttribute('hidden', '')
 			steps.hidden = true
 			steps.replaceChildren()
 			const installTitle = document.querySelector('#install-title [data-i18n="install"]')
