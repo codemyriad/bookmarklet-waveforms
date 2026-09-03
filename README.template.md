@@ -121,6 +121,8 @@ This README is generated. The prose lives in `README.template.md`; `npm run buil
 
 The overlay images in this README come from `tests/readme-captures.spec.js`. It builds a 17 second clip with ffmpeg (two flite sentences over a 120 Hz sine, the fan), plays it into a fake Talk participant card, waits for the 15 second window to fill and takes an element screenshot of the overlay in each view. Run `npm run capture:readme` after a design change and commit the four PNGs in `docs/readme/`; they are LFS objects.
 
+The homepage is translated (English, Italian, German, Spanish, French, Portuguese) from `site/translations.<version>.js`, picked from the browser's primary language, with `?lang=xx` as an override. The homepage test checks that every language defines the same keys as English.
+
 The homepage's test clip (two synthesized voices over a 120 Hz hum, with its own waveform as the picture) comes from `npm run build:demo-clip`, which writes an MP4 and a WebM into `site/assets/`. The homepage test plays it and checks that the bookmarklet picks it up as a source.
 
 The homepage screenshots are produced by the same harnesses (`npm run test:jitsi:showcase`, `test:google:showcase`, `test:teams:showcase`, `test:showcase`), with four generated participants, synthesized non overlapping speech turns and, for one of them, a steady fan tone. The fan is the whole point of the project, so it seemed fair to give it a seat.

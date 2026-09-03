@@ -188,3 +188,57 @@ for (const agentCase of agentCases) {
 		await context.close()
 	})
 }
+
+const translations = require('../site/translations.0.5.4.js').TALK_WAVEFORMS_TRANSLATIONS
+
+test('every language defines the same strings as English', () => {
+	const englishKeys = Object.keys(translations.en).sort()
+	for (const [language, strings] of Object.entries(translations)) {
+		expect(Object.keys(strings).sort(), language).toEqual(englishKeys)
+		expect(strings.lang).toBe(language)
+		for (const [key, value] of Object.entries(strings)) {
+			expect(value, `${language}.${key}`).not.toBe('')
+			expect(value.replace(/<\/?strong>/g, ''), `${language}.${key}`).not.toMatch(/<[a-z]/)
+		}
+	}
+})
+
+const languageCases = [
+	{ locale: 'it-IT', lang: 'it' },
+	{ locale: 'de-DE', lang: 'de' },
+	{ locale: 'es-ES', lang: 'es' },
+	{ locale: 'fr-FR', lang: 'fr' },
+	{ locale: 'pt-BR', lang: 'pt' },
+	{ locale: 'nl-NL', lang: 'en' },
+]
+
+for (const languageCase of languageCases) {
+	test(`speaks ${languageCase.lang} to a ${languageCase.locale} browser`, async ({ browser }) => {
+		const context = await browser.newContext({ locale: languageCase.locale })
+		const page = await context.newPage()
+		const navigationUrl = new URL(homepageUrl)
+		navigationUrl.searchParams.set('_', Date.now())
+		await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+		const strings = translations[languageCase.lang]
+		await expect(page.locator('html')).toHaveAttribute('lang', languageCase.lang)
+		await expect(page.getByRole('heading', { level: 1 })).toHaveText(strings.title)
+		await expect(page.locator('.lede')).toHaveText(strings.lede)
+		await expect(page.locator('#browser-name')).toHaveText(strings.browserChrome)
+		await expect(page.locator('#bookmarks-instruction')).toHaveText(strings.showBar.replace('{bar}', strings.barChrome))
+		await expect(page.locator('#copy-bookmarklet')).toHaveText(strings.copyIt)
+		await expect(page.locator('#try-status')).toHaveText(strings.tryIdle)
+		await expect(page.locator('.platform-note strong')).toHaveText(strings.callNote.match(/<strong>(.*?)<\/strong>/)[1])
+		await expect(page.locator('.showcase figcaption').first()).toHaveText(strings.jitsiCaption)
+		await expect(page.locator('.showcase img').first()).toHaveAttribute('alt', strings.jitsiAlt)
+		await expect(page.locator('#status')).toHaveText(strings.statusDesktop)
+		await expect(page.locator('.site-footer a').first()).toHaveText(strings.madeBy)
+		await context.close()
+	})
+}
+
+test('honours ?lang= over the browser language', async ({ page }) => {
+	const navigationUrl = new URL(homepageUrl)
+	navigationUrl.searchParams.set('lang', 'it')
+	await page.goto(navigationUrl.href, { waitUntil: 'domcontentloaded' })
+	await expect(page.getByRole('heading', { level: 1 })).toHaveText(translations.it.title)
+})

@@ -8,6 +8,33 @@
 	const tryStatus = document.querySelector('#try-status')
 	let bookmarklet = ''
 
+	// The page speaks the browser's primary language when it is one of the
+	// translations; English otherwise. `?lang=xx` overrides it for testing.
+	const translations = window.TALK_WAVEFORMS_TRANSLATIONS || {}
+	function pickLanguage() {
+		const requested = new URLSearchParams(location.search).get('lang')
+		const candidates = requested ? [requested] : [navigator.language, ...(navigator.languages || [])]
+		for (const candidate of candidates) {
+			const base = String(candidate || '').toLowerCase().split(/[-_]/)[0]
+			if (translations[base]) return base
+		}
+		return 'en'
+	}
+	const language = pickLanguage()
+	const strings = translations[language] || translations.en || {}
+	function t(key, values = {}) {
+		const template = strings[key] ?? translations.en?.[key] ?? key
+		return template.replace(/\{(\w+)\}/g, (match, name) => (name in values ? values[name] : match))
+	}
+
+	function applyTranslations() {
+		document.documentElement.lang = language
+		for (const element of document.querySelectorAll('[data-i18n]')) element.textContent = t(element.dataset.i18n)
+		for (const element of document.querySelectorAll('[data-i18n-html]')) element.innerHTML = t(element.dataset.i18nHtml)
+		for (const element of document.querySelectorAll('[data-i18n-alt]')) element.alt = t(element.dataset.i18nAlt)
+		for (const element of document.querySelectorAll('[data-i18n-aria-label]')) element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel))
+	}
+
 	function copyPlainText(value) {
 		const textarea = document.createElement('textarea')
 		textarea.value = value
@@ -58,35 +85,35 @@
 
 	function step(...parts) {
 		const item = document.createElement('li')
-		for (const part of parts) {
-			if (typeof part === 'string') item.append(part)
-			else item.append(part)
-		}
+		item.append(...parts)
 		return item
 	}
 
-	function strong(text) {
-		const element = document.createElement('strong')
-		element.textContent = text
-		return element
+	function htmlStep(key) {
+		const item = document.createElement('li')
+		item.innerHTML = t(key)
+		return item
 	}
 
-	function aside(...parts) {
+	function fragment(html) {
+		const template = document.createElement('template')
+		template.innerHTML = html
+		return template.content
+	}
+
+	function dragAside() {
 		const element = document.createElement('span')
 		element.className = 'aside'
-		element.append(...parts)
-		return element
-	}
-
-	function copyLink() {
-		const element = document.createElement('a')
-		element.id = 'copy-bookmarklet'
-		element.href = '#copy'
-		element.textContent = 'copy it'
-		element.addEventListener('click', (event) => {
+		const [before, after] = t('dragAside').split('{copy}')
+		const copy = document.createElement('a')
+		copy.id = 'copy-bookmarklet'
+		copy.href = '#copy'
+		copy.textContent = t('copyIt')
+		copy.addEventListener('click', (event) => {
 			event.preventDefault()
 			void copyBookmarklet()
 		})
+		element.append(before || '', copy, after || '')
 		return element
 	}
 
@@ -94,30 +121,19 @@
 		const apple = choice === 'safari' || choice === 'ios' || (browser.apple && choice !== 'android')
 		const keys = shortcutKeys(apple)
 		const spoken = apple ? 'Command Shift B' : 'Control Shift B'
-		const bar = choice === 'safari' ? 'favourites bar' : choice === 'firefox' ? 'bookmarks toolbar' : 'bookmarks bar'
+		const bar = choice === 'safari' ? t('barSafari') : choice === 'firefox' ? t('barFirefox') : t('barChrome')
 		const items = []
 		if (choice === 'android') {
-			items.push(
-				step('Tap ', strong('🌊 Talk'), ' above to copy it.'),
-				step('Bookmark this page: open the menu ', strong('⋮'), ' and tap the star.'),
-				step('Open your bookmarks and edit the new one: name it ', strong('Talk'), ' and replace its address with what you copied.'),
-				step('In a call, type ', strong('Talk'), ' in the address bar and pick the bookmark.'),
-			)
+			items.push(htmlStep('androidStep1'), htmlStep('androidStep2'), htmlStep('androidStep3'), htmlStep('androidStep4'))
 		} else if (choice === 'ios') {
-			items.push(
-				step('Tap ', strong('🌊 Talk'), ' above to copy it.'),
-				step('Tap ', strong('Share'), ', then ', strong('Add Bookmark'), ', then ', strong('Save'), '.'),
-				step('Open your bookmarks, tap ', strong('Edit'), ', tap the new bookmark and replace its address with what you copied.'),
-				step('In a call, open your bookmarks and tap ', strong('Talk'), '.'),
-			)
+			items.push(htmlStep('iosStep1'), htmlStep('iosStep2'), htmlStep('iosStep3'), htmlStep('iosStep4'))
 		} else {
 			const instruction = document.createElement('span')
 			instruction.id = 'bookmarks-instruction'
-			instruction.textContent = `Show the ${bar}`
-			items.push(
-				step(instruction, keycaps(keys, spoken), '.'),
-				step('Drag ', strong('🌊 Talk'), ' onto the bar.', aside('Cannot drag it? ', copyLink(), ', add any bookmark, and paste the copied text as its address.')),
-			)
+			instruction.textContent = t('showBar', { bar })
+			const dragItem = document.createElement('li')
+			dragItem.append(fragment(t('dragStep')), dragAside())
+			items.push(step(instruction, keycaps(keys, spoken), '.'), dragItem)
 		}
 		steps.replaceChildren(...items)
 		document.querySelectorAll('.shortcut-list [data-bookmarks-shortcut]').forEach((target) => {
@@ -132,16 +148,16 @@
 	}
 
 	const browserNames = {
-		chrome: 'Chrome, Edge or Brave',
-		firefox: 'Firefox',
-		safari: 'Safari',
-		android: 'Android',
-		ios: 'iPhone and iPad',
+		chrome: 'browserChrome',
+		firefox: 'browserFirefox',
+		safari: 'browserSafari',
+		android: 'browserAndroid',
+		ios: 'browserIos',
 	}
 
 	function initBrowserSteps() {
 		if (!steps) return
-		if (browserName) browserName.textContent = browserNames[browser.choice]
+		if (browserName) browserName.textContent = t(browserNames[browser.choice])
 		document.documentElement.dataset.browser = browser.choice
 		renderSteps(browser.choice)
 	}
@@ -159,13 +175,9 @@
 			if (state === lastState) return
 			lastState = state
 			tryStatus.classList.toggle('running', running)
-			if (state === 'hearing') {
-				tryStatus.replaceChildren(strong('It works.'), ' The graph in the corner is following the clip. You are ready for your next call. Click the bookmark again to close it.')
-			} else if (state === 'running') {
-				tryStatus.replaceChildren(strong('The bookmark works.'), ' Now press play on the clip and the graph in the bottom-left corner will start moving.')
-			} else {
-				tryStatus.textContent = original
-			}
+			if (state === 'hearing') tryStatus.innerHTML = t('tryHearing')
+			else if (state === 'running') tryStatus.innerHTML = t('tryRunning')
+			else tryStatus.textContent = original
 		}, 500)
 	}
 
@@ -258,6 +270,7 @@
 		})
 	}
 
+	applyTranslations()
 	initBrowserSteps()
 	watchForBookmarklet()
 	initKeyboardGuide()
@@ -272,22 +285,20 @@
 			link.setAttribute('href', bookmarklet)
 			link.textContent = '🌊 Talk'
 			link.classList.add('ready')
-			status.textContent = browser.mobile
-				? 'Tap to copy it.'
-				: 'Drag this to your bookmarks bar, or click it to try it on this page.'
+			status.textContent = t(browser.mobile ? 'statusMobile' : 'statusDesktop')
 		})
 		.catch((error) => {
-			link.textContent = 'Bookmarklet unavailable'
-			status.textContent = `Could not load the bookmarklet: ${error.message}`
+			link.textContent = t('statusUnavailable')
+			status.textContent = t('statusLoadError', { error: error.message })
 		})
 
 	async function copyBookmarklet() {
 		if (!bookmarklet) return
 		try {
 			if (!copyPlainText(bookmarklet)) await navigator.clipboard.writeText(bookmarklet)
-			status.textContent = 'Copied. Paste it as the address of a new bookmark.'
+			status.textContent = t('statusCopied')
 		} catch {
-			status.textContent = 'Clipboard access was denied. Drag the button to the bookmarks bar instead.'
+			status.textContent = t('statusDenied')
 		}
 	}
 

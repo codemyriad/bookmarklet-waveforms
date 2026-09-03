@@ -18,7 +18,7 @@
     "test:google:showcase": "GOOGLE_SCREENSHOT=site/assets/google-meet-waveforms-showcase.0.5.1.png playwright test tests/google-meet-showcase.spec.js --workers=1",
     "capture:readme": "README_CAPTURE_DIR=docs/readme playwright test tests/readme-captures.spec.js --workers=1",
     "test:showcase": "SHOWCASE_SCREENSHOT=site/assets/talk-waveforms-showcase.0.5.3.png SHOWCASE_SEED=solvay-1911 HARNESS_CALL_URL=\"$(../gocassini/bin/cassini dev room create --name 'Radiation and Quanta' | tail -n1)\" playwright test tests/harness.spec.js",
-    "deploy": "rsync -rv -- site/_headers site/index.html site/install.0.5.4.js site/assets bookmarklet-loader.js talk-waveforms.0.5.4.js pgs.sh:/talk-waveforms/"
+    "deploy": "rsync -rv -- site/_headers site/index.html site/install.0.5.4.js site/translations.0.5.4.js site/assets bookmarklet-loader.js talk-waveforms.0.5.4.js pgs.sh:/talk-waveforms/"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",
