@@ -41,8 +41,13 @@
 		return
 	}
 
-	window[PUBLIC_GLOBAL_KEY]?.destroy?.()
-	window[GLOBAL_KEY]?.destroy?.()
+	// The bookmark is a toggle: a second click tears the running instance
+	// down and stops there, without starting a new one.
+	const running = window[PUBLIC_GLOBAL_KEY] || window[GLOBAL_KEY]
+	if (typeof running?.destroy === 'function') {
+		running.destroy()
+		return
+	}
 	document.getElementById(HOST_ID)?.remove()
 
 	const audioContext = new AudioContextClass()

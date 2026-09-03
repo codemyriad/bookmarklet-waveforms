@@ -124,6 +124,23 @@ test('homepage prepares a draggable and copyable bookmarklet', async ({ page, co
 		platform: window.__TALK_WAVEFORMS__.platform,
 		message: host.shadowRoot.querySelector('.empty').textContent,
 	}))).toEqual({ platform: 'generic', message: 'No audio streams found on this page.' })
+	await expect(page.locator('#try-status')).toHaveText('The bookmark works. Now press play on the clip and the graph in the bottom-left corner will start moving.')
+	await expect(page.locator('#try-status')).toHaveClass(/running/)
+
+	// Playing the test clip turns it into an audio source of the bookmarklet.
+	await demoClip.evaluate((video) => video.play())
+	await expect.poll(() => page.evaluate(() => window.__TALK_WAVEFORMS__.sources.size), { timeout: 10_000 }).toBe(1)
+	await expect(page.locator('#try-status')).toHaveText('It works. The graph in the corner is following the clip. You are ready for your next call. Click the bookmark again to close it.')
+	expect(await page.evaluate(() => {
+		const source = [...window.__TALK_WAVEFORMS__.sources.values()][0]
+		return { origin: source.origin, placement: source.viewHost.dataset.placement }
+	})).toEqual({ origin: 'dom', placement: 'fallback' })
+
+	// A second click on the button closes it, as the page promises.
+	await bookmarklet.click()
+	await expect(page.locator('#nctalk-waveform')).toHaveCount(0)
+	await expect(page.locator('#try-status')).not.toHaveClass(/running/)
+	await expect(page.locator('#try-status')).toHaveText('A graph of the sound appears in the bottom-left corner of this page. Click the bookmark again to close it.')
 
 	if (process.env.LOCAL_HOMEPAGE !== '1') {
 		const payloadResponse = await page.request.get(payloadUrl)

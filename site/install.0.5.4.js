@@ -170,7 +170,8 @@
 		let lastState = ''
 		window.setInterval(() => {
 			const running = Boolean(document.getElementById('nctalk-waveform'))
-			const hearing = running && (window.__TALK_WAVEFORMS__?.sources?.size || 0) > 0
+			const sources = running ? [...(window.__TALK_WAVEFORMS__?.sources?.values?.() || [])] : []
+			const hearing = sources.some((source) => source.lastLevel > 0.02)
 			const state = hearing ? 'hearing' : running ? 'running' : 'idle'
 			if (state === lastState) return
 			lastState = state

@@ -331,10 +331,15 @@ test('loads through the real Nextcloud CSP and analyses a Talk media stream', as
 		return window.__WAVEFORM_OLD_CONTEXT__.state
 	})
 	expect(['running', 'suspended']).toContain(previousContextState)
+	// Running the bookmarklet again toggles it off instead of starting over.
 	await page.evaluate(loader)
 	await expect.poll(() => page.evaluate(() => window.__WAVEFORM_OLD_CONTEXT__.state)).toBe('closed')
-	await expect(page.locator('#nctalk-waveform')).toHaveCount(1)
+	await expect(page.locator('#nctalk-waveform')).toHaveCount(0)
+	expect(await page.evaluate(() => window.__NCTALK_WAVEFORM__ === undefined && window.__TALK_WAVEFORMS__ === undefined)).toBe(true)
 
+	// And a third run starts fresh.
+	await page.evaluate(loader)
+	await expect(page.locator('#nctalk-waveform')).toHaveCount(1)
 	await page.evaluate(() => window.__NCTALK_WAVEFORM__.destroy())
 	await expect(page.locator('#nctalk-waveform')).toHaveCount(0)
 	await expect(page.locator('.nctalk-waveform-source')).toHaveCount(0)

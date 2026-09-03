@@ -84,7 +84,7 @@ Painting is decoupled from analysis. A `requestAnimationFrame` loop redraws only
 
 ## leaving no trace
 
-Clicking the bookmark a second time runs `destroy()`, and so does clicking it on a page where it is already running (the new instance tears down the old one first). Destroy puts every wrapped prototype method back (only if it is still the bookmarklet's own wrapper, in case something else wrapped it later), removes the listeners from every peer connection, stops the streams it opened itself (mic test, `captureStream`), restores the `position` of every card it touched, closes the `AudioContext` and removes the shadow host. The smoke test checks that the page's `RTCPeerConnection` looks the same before and after.
+The bookmark is a toggle: clicking it on a page where it is already running calls `destroy()` and stops there. Destroy puts every wrapped prototype method back (only if it is still the bookmarklet's own wrapper, in case something else wrapped it later), removes the listeners from every peer connection, stops the streams it opened itself (mic test, `captureStream`), restores the `position` of every card it touched, closes the `AudioContext` and removes the shadow host. The smoke test checks that the page's `RTCPeerConnection` looks the same before and after.
 
 While it runs, `window.__TALK_WAVEFORMS__` exposes the lanes, the audio context, the detected platform and `destroy()`. The tests use it, and it is handy from the console.
 
